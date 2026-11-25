@@ -6,7 +6,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"mayamcp/api"
+	"github.com/neflalabs/mayamcp/api"
 )
 
 // ExampleNew_customTool shows how a consumer adds a parameterized tool without

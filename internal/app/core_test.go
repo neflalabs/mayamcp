@@ -12,7 +12,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"mayamcp/internal/mcpserver"
+	"github.com/neflalabs/mayamcp/internal/mcpserver"
 )
 
 func TestNewCoreWithoutTransport(t *testing.T) {

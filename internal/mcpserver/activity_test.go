@@ -415,7 +415,7 @@ func TestActivityMiddlewareLogsToolCallsEndToEnd(t *testing.T) {
 		func(context.Context, *mcp.CallToolRequest, struct{}) (*mcp.CallToolResult, any, error) {
 			return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: "boom"}}}, nil, nil
 		})
-	addTextTool(s, &mcp.Tool{Name: "secret_probe", Description: "Probe for secret leakage."},
+	AddTextTool(s, &mcp.Tool{Name: "secret_probe", Description: "Probe for secret leakage."},
 		func(context.Context, *mcp.CallToolRequest, struct {
 			Command string `json:"command"`
 		}) (*mcp.CallToolResult, any, error) {

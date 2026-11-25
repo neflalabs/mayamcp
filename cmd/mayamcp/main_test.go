@@ -14,7 +14,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"mayamcp/internal/app"
+	"github.com/neflalabs/mayamcp/internal/app"
 )
 
 func testLogger() *slog.Logger {
@@ -46,6 +46,9 @@ func TestNewHTTPServer(t *testing.T) {
 	// Streamable HTTP uses long-lived SSE streams; a write timeout would cut them off.
 	if srv.WriteTimeout != 0 {
 		t.Errorf("WriteTimeout = %v, want 0", srv.WriteTimeout)
+	}
+	if srv.MaxHeaderBytes <= 0 || srv.MaxHeaderBytes > 1<<20 {
+		t.Errorf("MaxHeaderBytes = %d, want a bounded positive value", srv.MaxHeaderBytes)
 	}
 }
 
@@ -162,5 +165,74 @@ func TestWarnIfNonLoopback(t *testing.T) {
 	warnIfNonLoopback("0.0.0.0:8080", logger)
 	if !strings.Contains(buf.String(), "non-loopback") {
 		t.Errorf("non-loopback address produced no warning: %q", buf.String())
+	}
+}
+
+func TestParseLogLevel(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want slog.Level
+	}{
+		{"debug", slog.LevelDebug},
+		{"INFO", slog.LevelInfo},
+		{"Warn", slog.LevelWarn},
+		{" warning ", slog.LevelWarn},
+		{"error", slog.LevelError},
+	} {
+		got, err := parseLogLevel(tc.in)
+		if err != nil {
+			t.Errorf("parseLogLevel(%q): %v", tc.in, err)
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("parseLogLevel(%q) = %v, want %v", tc.in, got, tc.want)
+		}
+	}
+	for _, in := range []string{"", "trace", "verbose"} {
+		if _, err := parseLogLevel(in); err == nil {
+			t.Errorf("parseLogLevel(%q) returned nil error", in)
+		}
+	}
+}
+
+func TestServeHTTPInvalidAddr(t *testing.T) {
+	core := app.NewCore(app.Config{Name: "bad-addr", Version: "v1", LogWriter: io.Discard})
+	if err := serveHTTP(core, "not a valid address"); err == nil {
+		t.Fatal("serveHTTP returned nil for an invalid listen address")
+	}
+}
+
+func TestNewCoreFromFlags(t *testing.T) {
+	core, err := newCore("flag-server", "v7", "warn", true)
+	if err != nil {
+		t.Fatalf("newCore: %v", err)
+	}
+	if core.Host.Name() != "flag-server" || core.Host.Version() != "v7" {
+		t.Errorf("identity = %s %s", core.Host.Name(), core.Host.Version())
+	}
+	if _, err := newCore("a", "b", "trace", false); err == nil {
+		t.Error("invalid log level was accepted")
+	}
+}
+
+func TestWarnIfNonLoopbackWildcardAndIPv6(t *testing.T) {
+	for _, addr := range []string{":8080", "[::]:8080"} {
+		t.Run(addr, func(t *testing.T) {
+			var buf bytes.Buffer
+			warnIfNonLoopback(addr, slog.New(slog.NewTextHandler(&buf, nil)))
+			if !strings.Contains(buf.String(), "non-loopback") {
+				t.Errorf("wildcard %q produced no warning: %q", addr, buf.String())
+			}
+		})
+	}
+
+	for _, addr := range []string{"[::1]:8080", "127.0.0.2:8080", "LOCALHOST:8080", "localhost.:8080"} {
+		t.Run(addr, func(t *testing.T) {
+			var buf bytes.Buffer
+			warnIfNonLoopback(addr, slog.New(slog.NewTextHandler(&buf, nil)))
+			if strings.Contains(buf.String(), "non-loopback") {
+				t.Errorf("loopback %q produced a warning: %q", addr, buf.String())
+			}
+		})
 	}
 }

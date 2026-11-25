@@ -14,22 +14,28 @@ Panduan singkat untuk AI yang bekerja di repo template ini.
 - Opsi identitas (`Name`, `Title`, `Instructions`, `Version`) harus punya default;
   jangan hardcode identitas konsumen di dalam inti.
 - Kontrak tool dikunci golden test. Perubahan kontrak: perbarui
-  `testdata/tools.golden.json` dengan
+  `testdata/tools.golden.json` (file pretty **884 byte**) dengan
   `go test ./internal/mcpserver -run TestToolContract -args -update`, lalu review diff.
+  Anggaran `TestToolsListBudget` mengukur `tools/list` compact (**601 byte** / 2048),
+  bukan ukuran file golden.
 - Jangan menaikkan budget `tools/list` tanpa keputusan sadar.
 - Tool dengan hasil teks besar memakai `addTextTool`; `outputSchema` lewat
   `mcp.AddTool` hanya untuk record kecil yang memang dibutuhkan client.
   Pola ini diwariskan dari `ngodingmcp` (lihat `docs/mcp-as-template.md`).
 - Perubahan perilaku pengguna harus disertai update `README.md` / `docs/`.
 - `TaskDev/README.md` berisi nama proyek `MayaMCP`. CLI taskdev punya fallback
-  hardcoded `Nefla POS`, jadi setiap selesai `taskdev-cli sync` (terutama setelah
-  regenerate dari nol) wajib cek baris `proyek **MayaMCP**` dan koreksi manual
-  bila berubah. Jangan anggap CLI mendeteksi nama dari repo.
+  hardcoded `Nefla POS`, jadi setiap selesai `taskdev_cli.py sync` (terutama
+  setelah regenerate dari nol) wajib cek baris `proyek **MayaMCP**` dan koreksi
+  manual bila berubah. Jangan anggap CLI mendeteksi nama dari repo.
+- `TaskDev/` bersifat privat (di-gitignore), jadi validasi notebook dijalankan
+  lokal lewat `make taskdev-validate`, bukan di CI.
 
 ## Perintah
 
 ```sh
-make test        # go test -count=1 ./...
-make check       # gofmt, vet, staticcheck, go test -race
-make build       # binary ./mayamcp
+make test             # go test -count=1 ./...
+make check            # gofmt, vet, staticcheck, go test -race
+make build            # binary ./mayamcp
+make taskdev-validate # taskdev_cli.py validate --strict (lokal)
+make taskdev-sync     # regenerate indeks TaskDev + jaga nama MayaMCP
 ```

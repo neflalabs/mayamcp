@@ -13,27 +13,51 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"mayamcp/internal/app"
-	"mayamcp/internal/mcpserver"
+	"github.com/neflalabs/mayamcp/internal/app"
+	"github.com/neflalabs/mayamcp/internal/mcpserver"
 )
 
 // defaultVersion is overridable at build time with -ldflags
 // "-X main.defaultVersion=v2026.11.2".
 var defaultVersion = mcpserver.DefaultVersion
 
+// parseLogLevel maps the CLI flag to a slog level. Invalid values are an
+// operator error and must be reported before any transport starts.
+func parseLogLevel(s string) (slog.Level, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "debug":
+		return slog.LevelDebug, nil
+	case "info":
+		return slog.LevelInfo, nil
+	case "warn", "warning":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	default:
+		return slog.LevelInfo, fmt.Errorf("unknown level %q (want debug, info, warn or error)", s)
+	}
+}
+
 func main() {
 	transport := flag.String("transport", "stdio", "transport: stdio (default) or http")
 	addr := flag.String("addr", "127.0.0.1:8080", "HTTP listen address (http transport only)")
 	name := flag.String("name", mcpserver.DefaultName, "server identity name")
 	version := flag.String("version", defaultVersion, "server version")
+	logLevel := flag.String("log-level", "info", "log level: debug, info, warn, error")
+	logJSON := flag.Bool("log-json", false, "emit JSON logs instead of text")
 	flag.Parse()
 
-	core := app.NewCore(app.Config{Name: *name, Version: *version})
+	core, err := newCore(*name, *version, *logLevel, *logJSON)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "invalid -log-level: %v\n", err)
+		os.Exit(2)
+	}
 
 	switch *transport {
 	case "stdio":
@@ -50,6 +74,21 @@ func main() {
 		fmt.Fprintf(os.Stderr, "unknown transport %q (want stdio or http)\n", *transport)
 		os.Exit(2)
 	}
+}
+
+// newCore turns the CLI flags into a configured core, keeping flag parsing
+// testable without invoking os.Exit.
+func newCore(name, version, logLevel string, logJSON bool) (*app.Core, error) {
+	level, err := parseLogLevel(logLevel)
+	if err != nil {
+		return nil, err
+	}
+	return app.NewCore(app.Config{
+		Name:     name,
+		Version:  version,
+		LogLevel: level,
+		LogJSON:  logJSON,
+	}), nil
 }
 
 // serveStdio runs the MCP protocol over stdin/stdout until the parent closes
@@ -75,6 +114,7 @@ func newHTTPServer(addr string, h http.Handler) *http.Server {
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 }
 
@@ -132,7 +172,17 @@ func newMCPHandler(core *app.Core) http.Handler {
 // auth or TLS, so the operator must provide them at the proxy layer.
 func warnIfNonLoopback(addr string, logger *slog.Logger) {
 	host, _, err := net.SplitHostPort(addr)
-	if err != nil || host == "" || host == "localhost" || host == "127.0.0.1" || host == "::1" {
+	if err != nil {
+		return
+	}
+	// An empty host (":8080", "[::]:8080") listens on every interface.
+	if host == "" || strings.EqualFold(strings.TrimSuffix(host, "."), "localhost") {
+		if host == "" {
+			logger.Warn("non-loopback bind without built-in auth/TLS", "addr", addr)
+		}
+		return
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
 		return
 	}
 	logger.Warn("non-loopback bind without built-in auth/TLS", "addr", addr)

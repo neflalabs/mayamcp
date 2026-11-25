@@ -11,7 +11,7 @@ type pingArgs struct{}
 // addPing registers a minimal liveness tool. It is the simplest example of
 // addTextTool: content only, no outputSchema cost in tools/list.
 func addPing(s *mcp.Server) {
-	addTextTool(s, &mcp.Tool{
+	AddTextTool(s, &mcp.Tool{
 		Name:        "ping",
 		Description: "Return pong. Use it to verify the transport and the tool contract.",
 		Annotations: readOnly(),

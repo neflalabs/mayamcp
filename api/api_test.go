@@ -9,7 +9,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"mayamcp/api"
+	"github.com/neflalabs/mayamcp/api"
 )
 
 // testHost implements api.Host, demonstrating that a consumer implementing
@@ -23,7 +23,7 @@ func (h testHost) Name() string    { return h.name }
 func (h testHost) Version() string { return h.version }
 
 // TestAliases verifies that the public alias types are usable by a consumer
-// that imports only mayamcp/api.
+// that imports only github.com/neflalabs/mayamcp/api.
 func TestAliases(t *testing.T) {
 	var _ api.Host = testHost{}
 

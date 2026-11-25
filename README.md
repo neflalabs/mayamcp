@@ -33,13 +33,19 @@ transport/options tidak perlu diubah.
 
 Ada dua mode konsumsi:
 
-1. **Salin template lalu edit `internal/`.** Kloning repo ini, ganti domain
-   `Host` dan tool sesuai kebutuhan, lalu jalankan lewat `cmd/mayamcp`. Cocok
-   bila Anda ingin mengubah perilaku inti server.
-2. **Impor `mayamcp/api` sebagai pustaka.** Package `api` adalah fasad publik
-   yang membungkus `internal/app` dan `internal/mcpserver` (yang tidak bisa
-   diimpor langsung dari modul lain karena aturan `internal` Go). Cocok bila
-   Anda ingin memakai server ini apa adanya dari modul Anda sendiri.
+1. **Impor `github.com/neflalabs/mayamcp/api` (jalur kanonik).** Package `api`
+   adalah fasad publik yang membungkus `internal/app` dan `internal/mcpserver`
+   (yang tidak bisa diimpor langsung dari modul lain karena aturan `internal`
+   Go). Helper `ResolveIdentity`, `NewLogger`, `ActivityMiddleware`,
+   `AddTextTool`, dan `AddUntypedTool` bisa dipakai satu per satu, atau lewat
+   `api.NewCore`/`api.NewWithOptions` bila lifecycle juga diambil.
+2. **Salin template lalu edit `internal/` (fork/prototipe).** `make rename
+   MODULE=...` meng-instansiasi template di module path lain. Jalur ini tetap
+   tersedia, tetapi perbaikan inti tidak otomatis ikut — pilih impor untuk
+   konsumsi jangka panjang.
+
+Module path kanonik sudah ditetapkan, tetapi remote/tag rilis belum dibuat.
+Untuk pemakaian lokal antar-repo, pakai `go.work` atau `replace ... => ../mayamcp`.
 
 Contoh pemakaian sebagai pustaka:
 
@@ -49,7 +55,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"mayamcp/api"
+	"github.com/neflalabs/mayamcp/api"
 )
 
 type host struct{}
@@ -58,9 +64,20 @@ func (host) Name() string    { return "my-server" }
 func (host) Version() string { return "v1" }
 
 func serve() error {
-	srv := api.New(host{}, "v1", api.Options{})
+	// Versi diambil dari host.Version(); tidak perlu ditulis dua kali.
+	srv := api.NewWithOptions(host{}, api.Options{})
 	return srv.Run(context.Background(), &mcp.StdioTransport{})
 }
+```
+
+Untuk mengganti starter tool `ping`/`describe_server`, berikan `Register`:
+
+```go
+srv := api.NewWithOptions(host{}, api.Options{
+	Register: func(s *mcp.Server) {
+		api.AddTextTool(s, &mcp.Tool{Name: "echo", Description: "Echo a label."}, echoHandler)
+	},
+})
 ```
 
 Fasad ini hanya berisi alias tipe dan fungsi delegasi; tidak ada logika yang
@@ -73,16 +90,29 @@ ditulis ulang. Field baru pada `app.Config` otomatis tersedia lewat
 make build
 ./mayamcp                         # stdio, untuk client lokal
 ./mayamcp -transport=http -addr=127.0.0.1:8080
+./mayamcp -log-level=debug -log-json     # log JSON untuk container/systemd
 ```
+
+`-log-level` menerima `debug`, `info` (default), `warn`/`warning`, atau `error`;
+nilai lain menyebabkan exit code `2`.
 
 HTTP memakai Streamable HTTP dengan `Stateless: true`. Autentikasi/TLS
 diserahkan ke aplikasi atau reverse proxy yang menanam template ini.
+
+## Kompatibilitas & versi
+
+CalVer `vYYYY.MM.MINOR`. Paket `api` adalah satu-satunya kontrak publik:
+penambahan fungsi/field boleh tanpa kenaikan MINOR; penghapusan atau perubahan
+tanda tangan hanya pada MINOR dengan catatan migrasi di `CHANGELOG.md`. Kontrak
+tool (`tools.golden.json`) dan format `ActivityPrefix` tidak berubah lewat
+perubahan `api` biasa.
 
 ## Test
 
 ```sh
 make test
 make check
+make consumer-test   # modul konsumen eksternal (hanya import api)
 ```
 
 Kontrak tool dikunci oleh `internal/mcpserver/testdata/tools.golden.json`.

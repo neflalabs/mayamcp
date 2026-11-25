@@ -12,7 +12,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"mayamcp/internal/mcpserver"
+	"github.com/neflalabs/mayamcp/internal/mcpserver"
 )
 
 // Regenerate with: go test ./internal/mcpserver -run TestToolContract -args -update

@@ -42,6 +42,16 @@ type Options struct {
 	// output is always sanitized with cleanTarget by the middleware.
 	TargetExtractor TargetExtractor
 	Logger          *slog.Logger
+	// Register, when set, replaces the starter tools. The consumer owns the
+	// server's tool set; ping and describe_server are not registered.
+	Register func(*mcp.Server)
+	// RegisterResources, when set, adds the consumer's resources.
+	RegisterResources func(*mcp.Server)
+	// Middleware is added before the activity middleware: custom → activity.
+	Middleware []mcp.Middleware
+	// DisableActivityMiddleware lets a consumer install its own domain-aware
+	// activity middleware while still using New/NewCore for identity and hooks.
+	DisableActivityMiddleware bool
 }
 
 // New builds an MCP server for host. The same server can be served over stdio
@@ -72,25 +82,29 @@ func New(host Host, version string, opts Options) *mcp.Server {
 	if resolvedVersion == "" {
 		resolvedVersion = DefaultVersion
 	}
-	title := opts.Title
-	if title == "" {
-		title = defaultTitle
-	}
+	impl := ResolveIdentity(Identity{Name: name, Title: opts.Title, Version: resolvedVersion})
 	instructions := opts.Instructions
 	if instructions == "" {
-		instructions = fmt.Sprintf(defaultInstructions, name)
+		instructions = fmt.Sprintf(defaultInstructions, impl.Name)
 	}
 
 	// One identity for every observer: describe_server receives the same
 	// resolved values the MCP handshake advertises. The consumer's Host is
 	// never wrapped, so extending it with domain methods stays safe.
-	s := mcp.NewServer(
-		&mcp.Implementation{Name: name, Title: title, Version: resolvedVersion},
-		&mcp.ServerOptions{Instructions: instructions},
-	)
-	addPing(s)
-	addDescribeServer(s, name, resolvedVersion)
-	if opts.Logger != nil {
+	s := mcp.NewServer(&impl, &mcp.ServerOptions{Instructions: instructions})
+	if opts.Register != nil {
+		opts.Register(s)
+	} else {
+		addPing(s)
+		addDescribeServer(s, impl.Name, impl.Version)
+	}
+	if opts.RegisterResources != nil {
+		opts.RegisterResources(s)
+	}
+	if len(opts.Middleware) > 0 {
+		s.AddReceivingMiddleware(opts.Middleware...)
+	}
+	if opts.Logger != nil && !opts.DisableActivityMiddleware {
 		s.AddReceivingMiddleware(activityMiddleware(opts.Logger, opts.TargetExtractor))
 	}
 	return s

@@ -2,9 +2,12 @@ BINARY := mayamcp
 STATICCHECK_VERSION := v0.8.2
 VERSION ?= dev
 MODULE ?= newmodule
-TASKDEV_CLI ?= $(HOME)/.config/opencode/skills/taskdev/scripts/taskdev-cli.ts
+NAME := $(notdir $(MODULE))
+CURRENT_MODULE := $(shell sed -n 's/^module //p' go.mod)
+TASKDEV_CLI ?= $(HOME)/.config/opencode/skills/taskdev/scripts/taskdev_cli.py
+RENAME_DOCS := $(shell find . -type f \( -name '*.go' -o -name '*.md' \) -not -path './.git/*' -not -path './TaskDev/*')
 
-.PHONY: build test check cover clean rename taskdev-sync
+.PHONY: build test check cover consumer-test clean rename taskdev-validate taskdev-sync
 
 build:
 	go build -ldflags "-X main.defaultVersion=$(VERSION)" -o $(BINARY) ./cmd/mayamcp
@@ -26,17 +29,35 @@ check:
 	fi
 	go test -count=1 -race ./...
 
+# Build and test a separate Go module that imports only mayamcp/api.
+consumer-test:
+	cd consumer && GOWORK=off go test -count=1 ./...
+
 clean:
 	rm -f $(BINARY) coverage.out
 
-# Instantiate the template under a new Go module path. Review the diff afterwards.
+# Instantiate the template under a new Go module path. The binary name and
+# cmd/ directory follow the module basename. Review the diff afterwards.
 rename:
 	@test -n "$(MODULE)" || (echo "MODULE is required" && exit 1)
-	@grep -rl --include='*.go' --include='*.md' 'mayamcp' . | xargs sed -i 's/mayamcp/$(MODULE)/g'
-	@echo "renamed to $(MODULE); run make check and review the diff"
+	@test "$(MODULE)" != "$(CURRENT_MODULE)" || (echo "module path unchanged: $(MODULE)" && exit 1)
+	go mod edit -module "$(MODULE)"
+	@for f in $(RENAME_DOCS); do \
+		sed -i 's|mayamcp/api|$(MODULE)/api|g; s|mayamcp/internal|$(MODULE)/internal|g; s|"mayamcp"|"$(NAME)"|g; s|\./cmd/mayamcp|./cmd/$(NAME)|g; s|\./mayamcp|./$(NAME)|g' "$$f"; \
+	done
+	@sed -i 's|^BINARY := [A-Za-z0-9_-]*|BINARY := $(NAME)|; s|-o $$(BINARY) ./cmd/[A-Za-z0-9_-]*|-o $$(BINARY) ./cmd/$(NAME)|' Makefile
+	@sed -i 's|./cmd/mayamcp|./cmd/$(NAME)|g' .github/workflows/ci.yml
+	@sed -i 's|^/mayamcp|/$(NAME)|' .gitignore
+	@if [ -d cmd/mayamcp ] && [ "$(NAME)" != "mayamcp" ]; then mv cmd/mayamcp cmd/$(NAME); fi
+	@echo "renamed to $(MODULE) (binary $(NAME)); run make check and review the diff"
+
+# Validate the private TaskDev notebook locally. It is intentionally not run in
+# CI: TaskDev/ is gitignored, so a runner has no notebook to validate.
+taskdev-validate:
+	@python3 $(TASKDEV_CLI) validate --strict
 
 # Regenerate the TaskDev index, then undo the CLI's hardcoded fallback name.
 taskdev-sync:
-	@bun run $(TASKDEV_CLI) sync
+	@python3 $(TASKDEV_CLI) sync
 	@grep -q 'proyek \*\*MayaMCP\*\*' TaskDev/README.md || \
 		sed -i 's/proyek \*\*[^*]*\*\*/proyek **MayaMCP**/' TaskDev/README.md

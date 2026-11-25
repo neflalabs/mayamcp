@@ -1,4 +1,4 @@
-module mayamcp
+module github.com/neflalabs/mayamcp
 
 go 1.26.0
 

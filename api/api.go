@@ -9,12 +9,13 @@ package api
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"mayamcp/internal/app"
-	"mayamcp/internal/mcpserver"
+	"github.com/neflalabs/mayamcp/internal/app"
+	"github.com/neflalabs/mayamcp/internal/mcpserver"
 )
 
 // Config is the input to NewCore. It is an alias of app.Config, so fields
@@ -30,8 +31,17 @@ type Host = mcpserver.Host
 // Options configures server identity and optional activity logging.
 type Options = mcpserver.Options
 
+// Identity is the metadata consumed by ResolveIdentity.
+type Identity = mcpserver.Identity
+
+// LogOptions configures a logger created by NewLogger.
+type LogOptions = mcpserver.LogOptions
+
 // TargetExtractor is the hook for domain-specific activity-log targets.
 type TargetExtractor = mcpserver.TargetExtractor
+
+// Handler is the typed handler shape accepted by AddTextTool and AddUntypedTool.
+type Handler[In, Out any] func(context.Context, *mcp.CallToolRequest, In) (*mcp.CallToolResult, Out, error)
 
 // NewCore prepares an MCP server and its domain host without starting a
 // listener or wiring a transport.
@@ -43,6 +53,42 @@ func NewCore(cfg Config) *Core {
 // returned server (stdio, Streamable HTTP, in-memory, ...).
 func New(host Host, version string, opts Options) *mcp.Server {
 	return mcpserver.New(host, version, opts)
+}
+
+// NewWithOptions builds a server without a separate version argument. The
+// version comes from Options.Version, then host.Version(), then the default.
+func NewWithOptions(host Host, opts Options) *mcp.Server {
+	return mcpserver.New(host, "", opts)
+}
+
+// ResolveIdentity produces the server identity advertised at initialize. Use
+// it when the consumer builds mcp.NewServer itself (level-B toolkit path).
+func ResolveIdentity(in Identity) mcp.Implementation {
+	return mcpserver.ResolveIdentity(in)
+}
+
+// NewLogger builds the standard slog-based logger used by the core. Level and
+// formatting options only apply when no existing Logger is supplied.
+func NewLogger(o LogOptions) *slog.Logger {
+	return mcpserver.NewLogger(o)
+}
+
+// ActivityMiddleware is the log middleware used by the core. Consumers that
+// own mcp.NewServer add it themselves with Server.AddReceivingMiddleware.
+func ActivityMiddleware(logger *slog.Logger, extract TargetExtractor) mcp.Middleware {
+	return mcpserver.ActivityMiddleware(logger, extract)
+}
+
+// AddTextTool registers a tool with content only: no outputSchema and no
+// structuredContent. Use it for text-heavy results such as files or logs.
+func AddTextTool[In, Out any](s *mcp.Server, t *mcp.Tool, h Handler[In, Out]) {
+	mcpserver.AddTextTool(s, t, mcpserver.Handler[In, Out](h))
+}
+
+// AddUntypedTool registers a tool with structuredContent but no outputSchema.
+// Use it for short confirmations read by programmatic clients.
+func AddUntypedTool[In, Out any](s *mcp.Server, t *mcp.Tool, h Handler[In, Out]) {
+	mcpserver.AddUntypedTool(s, t, mcpserver.Handler[In, Out](h))
 }
 
 // ActivityPrefix is the message prefix a log consumer can use to recognise

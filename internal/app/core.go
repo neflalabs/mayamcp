@@ -4,11 +4,10 @@ package app
 import (
 	"io"
 	"log/slog"
-	"os"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"mayamcp/internal/mcpserver"
+	"github.com/neflalabs/mayamcp/internal/mcpserver"
 )
 
 // Config is the minimal input needed to build the core.
@@ -32,6 +31,15 @@ type Config struct {
 	LogLevel slog.Leveler
 	// LogJSON switches loggers built here from text to JSON handler.
 	LogJSON bool
+	// Register replaces the starter tools when set.
+	Register func(*mcp.Server)
+	// RegisterResources adds consumer resources when set.
+	RegisterResources func(*mcp.Server)
+	// Middleware is added before the activity middleware.
+	Middleware []mcp.Middleware
+	// DisableActivityMiddleware lets a consumer install its own activity
+	// middleware while keeping identity, logging and hooks from the core.
+	DisableActivityMiddleware bool
 }
 
 // Core is the reusable runtime; a front end can serve Core.Server over stdio
@@ -53,23 +61,12 @@ func (h staticHost) Version() string { return h.version }
 // NewCore prepares the MCP server and its domain host without starting a
 // listener or wiring any front end.
 func NewCore(cfg Config) *Core {
-	level := slog.Leveler(slog.LevelInfo)
-	if cfg.LogLevel != nil {
-		level = cfg.LogLevel
-	}
-	handlerOptions := &slog.HandlerOptions{Level: level}
-	newHandler := func(w io.Writer) slog.Handler {
-		if cfg.LogJSON {
-			return slog.NewJSONHandler(w, handlerOptions)
-		}
-		return slog.NewTextHandler(w, handlerOptions)
-	}
-	logger := cfg.Logger
-	if cfg.LogWriter != nil {
-		logger = slog.New(newHandler(cfg.LogWriter))
-	} else if logger == nil {
-		logger = slog.New(newHandler(os.Stderr))
-	}
+	logger := mcpserver.NewLogger(mcpserver.LogOptions{
+		Writer: cfg.LogWriter,
+		Logger: cfg.Logger,
+		Level:  cfg.LogLevel,
+		JSON:   cfg.LogJSON,
+	})
 	name := cfg.Name
 	if name == "" {
 		name = mcpserver.DefaultName
@@ -80,12 +77,16 @@ func NewCore(cfg Config) *Core {
 	}
 	host := staticHost{name: name, version: version}
 	opts := mcpserver.Options{
-		Name:            name,
-		Title:           cfg.Title,
-		Instructions:    cfg.Instructions,
-		Version:         version,
-		TargetExtractor: cfg.TargetExtractor,
-		Logger:          logger,
+		Name:                      name,
+		Title:                     cfg.Title,
+		Instructions:              cfg.Instructions,
+		Version:                   version,
+		TargetExtractor:           cfg.TargetExtractor,
+		Logger:                    logger,
+		Register:                  cfg.Register,
+		RegisterResources:         cfg.RegisterResources,
+		Middleware:                cfg.Middleware,
+		DisableActivityMiddleware: cfg.DisableActivityMiddleware,
 	}
 	server := mcpserver.New(host, version, opts)
 	return &Core{Server: server, Host: host, Logger: logger}

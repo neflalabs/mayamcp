@@ -39,17 +39,20 @@ Jangan memasukkan path host, token, atau data rahasia ke pesan error.
 
 | Kebutuhan | Cara |
 |---|---|
-| Hasil berupa teks besar (file, listing, log) | `addTextTool` — hanya `content`, tanpa `outputSchema` (di dalam `internal/mcpserver`) |
-| Konfirmasi singkat dengan JSON untuk klien | `mcp.AddTool` dengan `Out any`; konsumen bisa memakai `Options.TargetExtractor` untuk label aktivitas |
+| Hasil berupa teks besar (file, listing, log) | `api.AddTextTool` — hanya `content`, tanpa `outputSchema` |
+| Konfirmasi singkat dengan JSON untuk klien | `api.AddUntypedTool` — ada `structuredContent`, tanpa `outputSchema` |
 | Record kecil yang benar-benar dibutuhkan klien | `mcp.AddTool` dengan tipe `Out` → ada `outputSchema` + `structuredContent` |
 
-Dari luar modul, pakai `mayamcp/api`: `api.New(...)` mengembalikan
-`*mcp.Server`, lalu daftarkan tool dengan `mcp.AddTool`.
+Dari luar modul, pakai `github.com/neflalabs/mayamcp/api`: `api.NewWithOptions(...)`
+mengembalikan `*mcp.Server`. Berikan `Options.Register` untuk mengganti starter
+tool; di dalamnya daftarkan tool dengan `api.AddTextTool` / `api.AddUntypedTool`
+atau `mcp.AddTool` bila `outputSchema` memang dibutuhkan.
 
 ## 4. Menjaga kontrak bawaan
 
-Golden `internal/mcpserver/testdata/tools.golden.json` mengunci `tools/list`
-(601 byte dari budget 2048). Karena itu:
+Kontrak dikunci oleh `internal/mcpserver/testdata/tools.golden.json` (file
+pretty-printed **884 byte**). `TestToolsListBudget` mengukur `tools/list` compact
+= **601 byte** dari budget 2048; kedua angka ini bukan hal yang sama. Karena itu:
 
 * contoh dan percobaan **jangan** didaftarkan ke server bawaan;
 * tulis sebagai `Example...` di `*_test.go` atau dokumentasi saja;

@@ -48,25 +48,36 @@ func activityMiddleware(logger *slog.Logger, extractor TargetExtractor) mcp.Midd
 				target = resolveTarget(name, r.Params.Arguments, extractor)
 			}
 			ok, detail := activityOutcomeWith(res, err)
+			level := slog.LevelInfo
+			if !ok {
+				level = slog.LevelWarn
+			}
 			line := ActivityLine(name, target, ok, detail, time.Since(started))
 			attrs := []any{}
-			if size, ok := measureResult(res); ok {
-				line += resultSizeSuffix(size)
-				attrs = append(attrs,
-					"content_bytes", size.contentBytes,
-					"content_tokens", size.contentTokens,
-					"structured_bytes", size.structuredBytes,
-					"structured_tokens", size.structuredTokens,
-				)
+			// JSON-encoding the result is O(payload). Skip it entirely when the
+			// configured level would discard the record anyway.
+			if logger.Enabled(ctx, level) {
+				if size, measured := measureResult(res); measured {
+					line += resultSizeSuffix(size)
+					attrs = append(attrs,
+						"content_bytes", size.contentBytes,
+						"content_tokens", size.contentTokens,
+						"structured_bytes", size.structuredBytes,
+						"structured_tokens", size.structuredTokens,
+					)
+				}
 			}
-			if ok {
-				logger.Info(ActivityPrefix+line, attrs...)
-			} else {
-				logger.Warn(ActivityPrefix+line, attrs...)
-			}
+			logger.Log(ctx, level, ActivityPrefix+line, attrs...)
 			return res, err
 		}
 	}
+}
+
+// ActivityMiddleware is the public form of activityMiddleware. Consumers that
+// call mcp.NewServer themselves can add it to their own server without going
+// through New or NewCore.
+func ActivityMiddleware(logger *slog.Logger, extractor TargetExtractor) mcp.Middleware {
+	return activityMiddleware(logger, extractor)
 }
 
 // ActivityLine formats one activity entry: tool, target, ✓/✗, optional detail
@@ -213,20 +224,25 @@ func activityTarget(raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return ""
 	}
-	var args map[string]any
+	// A fixed struct avoids building a map[string]any on every tools/call.
+	// Content-bearing keys are deliberately absent from this allowlist.
+	var args struct {
+		From   string `json:"from"`
+		To     string `json:"to"`
+		Name   string `json:"name"`
+		Path   string `json:"path"`
+		ID     string `json:"id"`
+		Target string `json:"target"`
+	}
 	if json.Unmarshal(raw, &args) != nil {
 		return ""
 	}
-	str := func(k string) string {
-		s, _ := args[k].(string)
-		return s
-	}
-	value := func(k string) string { return safeTargetValue(str(k)) }
+	value := func(s string) string { return safeTargetValue(s) }
 
 	var target string
 	switch {
-	case str("from") != "" || str("to") != "":
-		from, to := hostOrSafeValue(str("from")), hostOrSafeValue(str("to"))
+	case args.From != "" || args.To != "":
+		from, to := hostOrSafeValue(args.From), hostOrSafeValue(args.To)
 		switch {
 		case from != "" && to != "":
 			target = from + " → " + to
@@ -235,14 +251,14 @@ func activityTarget(raw json.RawMessage) string {
 		default:
 			target = to
 		}
-	case value("name") != "":
-		target = value("name")
-	case value("path") != "":
-		target = value("path")
-	case value("id") != "":
-		target = value("id")
-	case value("target") != "":
-		target = value("target")
+	case value(args.Name) != "":
+		target = value(args.Name)
+	case value(args.Path) != "":
+		target = value(args.Path)
+	case value(args.ID) != "":
+		target = value(args.ID)
+	case value(args.Target) != "":
+		target = value(args.Target)
 	}
 	return cleanTarget(target)
 }

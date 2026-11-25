@@ -18,6 +18,8 @@ jobs:
         run: make check
       - name: Verify module checksums
         run: go mod verify
+      - name: Consumer acceptance test (external module)
+        run: make consumer-test
       - name: Build binary
         run: make build
       - name: Cross-compile check

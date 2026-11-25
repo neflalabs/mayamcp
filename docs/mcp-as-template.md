@@ -72,6 +72,12 @@ Inventaris konkret yang harus ikut daftar saat *rebranding* (bukan hanya daftar 
 
 ## 5. Rencana Ekstraksi **MayaMCP** (Setelah Struktur Beres)
 
+> **Keputusan menyusul (2026-11-25):** daftar di bawah adalah rencana asli. Dua
+> keputusan terbuka sudah ditutup di
+> `TaskDev/01_Foundation_And_Architecture/01_MayaMCP_Architecture_Guideline.md`:
+> §3.6 memilih **stdio default + Streamable HTTP stateless**, §3.8 memilih
+> **mayamcp sebagai source-of-truth** yang di-port ke `ngodingmcp`.
+
 1. **Tentukan profil target MayaMCP:** *stdio* minimal, HTTP *stateless* saja, atau HTTP lengkap dengan auth/UI.
 2. **Ekstrak lapisan MCP + helper payload (`register.go`, pola `tools_<domain>.go`, *middleware* generik)** ke fondasi **MayaMCP**.
 3. **Ganti *domain layer*** dengan domain MCP tujuan baru, sesuaikan *instructions* & *resource*. *Contract test* dan *token budget test* sudah ada di `ngodingmcp` (`tools_contract_test.go`, `tools_budget_test.go`) — tinggal diadopsi di template, bukan dibuat dari nol.
