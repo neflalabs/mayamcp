@@ -3,9 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "v[0-9]*"
-    tags-ignore:
-      - "v20*" # legacy CalVer binary tags, kept for history only
+      - "v0.*" # semver module tags only; legacy v2026.11.x never matches
   workflow_dispatch:
     inputs:
       version:
