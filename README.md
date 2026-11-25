@@ -190,7 +190,9 @@ go test ./internal/mcpserver -run TestToolContract -args -update
 ```
 
 Bugfixes follow the Prove-It pattern: write the failing reproduction first.
-Coverage is kept at or above 87.4%.
+Coverage stays at or above the 87.4% baseline (currently ~96%; the CLI entry
+point and transport tests are fully covered except the trivial `os.Exit` wiring
+in `main`).
 
 ## Versioning
 

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -234,5 +235,82 @@ func TestWarnIfNonLoopbackWildcardAndIPv6(t *testing.T) {
 				t.Errorf("loopback %q produced a warning: %q", addr, buf.String())
 			}
 		})
+	}
+}
+
+func TestRunExitCodes(t *testing.T) {
+	cases := []struct {
+		name     string
+		args     []string
+		stdioErr error
+		httpErr  error
+		wantCode int
+		wantText string
+		wantHTTP bool
+	}{
+		{name: "stdio success", wantCode: 0},
+		{name: "http success", args: []string{"-transport=http", "-addr=127.0.0.1:0"}, wantCode: 0, wantHTTP: true},
+		{name: "invalid log level", args: []string{"-log-level=trace"}, wantCode: 2, wantText: "invalid -log-level"},
+		{name: "invalid transport", args: []string{"-transport=bogus"}, wantCode: 2, wantText: "unknown transport"},
+		{name: "unknown flag", args: []string{"-not-a-flag"}, wantCode: 2, wantText: "not defined"},
+		{name: "stdio failure", stdioErr: errors.New("stdio failed"), wantCode: 1, wantText: "stdio failed"},
+		{name: "http failure", args: []string{"-transport=http"}, httpErr: errors.New("http failed"), wantCode: 1, wantText: "http failed", wantHTTP: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var stderr bytes.Buffer
+			stdioCalls, httpCalls := 0, 0
+			got := run(tc.args, &stderr,
+				func(*app.Core) error { stdioCalls++; return tc.stdioErr },
+				func(*app.Core, string) error { httpCalls++; return tc.httpErr },
+			)
+			if got != tc.wantCode {
+				t.Errorf("exit code = %d, want %d (stderr: %q)", got, tc.wantCode, stderr.String())
+			}
+			if tc.wantText != "" && !strings.Contains(stderr.String(), tc.wantText) {
+				t.Errorf("stderr = %q, want it to contain %q", stderr.String(), tc.wantText)
+			}
+			if tc.wantHTTP {
+				if httpCalls != 1 || stdioCalls != 0 {
+					t.Errorf("calls: stdio=%d http=%d, want only http", stdioCalls, httpCalls)
+				}
+			} else if tc.wantCode == 0 || tc.name == "stdio failure" {
+				if stdioCalls != 1 || httpCalls != 0 {
+					t.Errorf("calls: stdio=%d http=%d, want only stdio", stdioCalls, httpCalls)
+				}
+			}
+		})
+	}
+}
+
+// stubTransport fails immediately so serveStdio can be tested without
+// touching real stdin/stdout.
+type stubTransport struct{ err error }
+
+func (t stubTransport) Connect(context.Context) (mcp.Connection, error) {
+	return nil, t.err
+}
+
+func TestServeStdioTransport(t *testing.T) {
+	core := app.NewCore(app.Config{Name: "stdio-test", Version: "v1", LogWriter: io.Discard})
+	if err := serveStdio(core, stubTransport{err: context.Canceled}); err != nil {
+		t.Errorf("canceled transport = %v, want nil", err)
+	}
+	want := errors.New("connect failed")
+	if err := serveStdio(core, stubTransport{err: want}); !errors.Is(err, want) {
+		t.Errorf("failed transport = %v, want %v", err, want)
+	}
+}
+
+func TestRunHTTPServerClosed(t *testing.T) {
+	srv := newHTTPServer("127.0.0.1:0", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		_ = srv.Close()
+	}()
+	if err := runHTTP(context.Background(), srv, testLogger()); err != nil {
+		t.Fatalf("runHTTP after Close = %v, want nil", err)
 	}
 }

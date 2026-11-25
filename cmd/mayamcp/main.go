@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -45,35 +46,49 @@ func parseLogLevel(s string) (slog.Level, error) {
 }
 
 func main() {
-	transport := flag.String("transport", "stdio", "transport: stdio (default) or http")
-	addr := flag.String("addr", "127.0.0.1:8080", "HTTP listen address (http transport only)")
-	name := flag.String("name", mcpserver.DefaultName, "server identity name")
-	version := flag.String("version", defaultVersion, "server version")
-	logLevel := flag.String("log-level", "info", "log level: debug, info, warn, error")
-	logJSON := flag.Bool("log-json", false, "emit JSON logs instead of text")
-	flag.Parse()
+	os.Exit(run(os.Args[1:], os.Stderr,
+		func(core *app.Core) error { return serveStdio(core, &mcp.StdioTransport{}) },
+		serveHTTP,
+	))
+}
+
+// run parses args, builds the core and dispatches to a transport. It returns an
+// exit code instead of calling os.Exit so the CLI can be unit tested.
+func run(args []string, stderr io.Writer, stdioFn func(*app.Core) error, httpFn func(*app.Core, string) error) int {
+	fs := flag.NewFlagSet("mayamcp", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	transport := fs.String("transport", "stdio", "transport: stdio (default) or http")
+	addr := fs.String("addr", "127.0.0.1:8080", "HTTP listen address (http transport only)")
+	name := fs.String("name", mcpserver.DefaultName, "server identity name")
+	version := fs.String("version", defaultVersion, "server version")
+	logLevel := fs.String("log-level", "info", "log level: debug, info, warn, error")
+	logJSON := fs.Bool("log-json", false, "emit JSON logs instead of text")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
 
 	core, err := newCore(*name, *version, *logLevel, *logJSON)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "invalid -log-level: %v\n", err)
-		os.Exit(2)
+		fmt.Fprintf(stderr, "invalid -log-level: %v\n", err)
+		return 2
 	}
 
 	switch *transport {
 	case "stdio":
-		if err := serveStdio(core); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+		if err := stdioFn(core); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
 		}
 	case "http":
-		if err := serveHTTP(core, *addr); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+		if err := httpFn(core, *addr); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "unknown transport %q (want stdio or http)\n", *transport)
-		os.Exit(2)
+		fmt.Fprintf(stderr, "unknown transport %q (want stdio or http)\n", *transport)
+		return 2
 	}
+	return 0
 }
 
 // newCore turns the CLI flags into a configured core, keeping flag parsing
@@ -94,10 +109,10 @@ func newCore(name, version, logLevel string, logJSON bool) (*app.Core, error) {
 // serveStdio runs the MCP protocol over stdin/stdout until the parent closes
 // the pipe or the process receives SIGINT/SIGTERM. stdout is reserved for the
 // protocol; the logger writes to stderr.
-func serveStdio(core *app.Core) error {
+func serveStdio(core *app.Core, transport mcp.Transport) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	err := core.Server.Run(ctx, &mcp.StdioTransport{})
+	err := core.Server.Run(ctx, transport)
 	if errors.Is(err, context.Canceled) {
 		return nil
 	}
