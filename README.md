@@ -1,81 +1,67 @@
 # MayaMCP
 
-Starter template untuk server MCP berbasis Go. Inti (`internal/mcpserver`)
-tidak bergantung pada transport, autentikasi, Web UI, atau sistem operasi;
-front end memilih transport saat startup.
-
-## Latar & rujukan upstream
-
-MayaMCP diekstrak dari `ngodingmcp`. Catatan asli proses ekstraksi — filosofi
-nama, batas inti vs *appliance*, inventaris identitas yang perlu diganti, dan
-pertanyaan terbuka soal *source-of-truth* antar dua repo — disimpan di
-[`docs/mcp-as-template.md`](docs/mcp-as-template.md). Dokumen itu disalin apa
-adanya dari `ngodingmcp/mcp-as-template.md`, jadi rujukan commit/TaskDev di
-dalamnya merujuk ke upstream.
-
-## Struktur
-
-- `internal/mcpserver` — server, opsi identitas, helper hasil, activity log,
-  dan dua tool contoh (`ping`, `describe_server`).
-- `internal/app` — `NewCore`: membangun server + domain host tanpa listener.
-- `cmd/mayamcp` — pemilih transport: `stdio` (default) atau `http`.
-- `docs/mcp-as-template.md` — catatan upstream tentang ekstraksi template.
-- `docs/` — indeks, quickstart, panduan API, observability, dan authoring tool
-  (mulai dari [`docs/README.md`](docs/README.md)).
-- `consumer/` — modul terpisah yang hanya mengimpor `api` untuk acceptance test.
-- `scripts/parity-check.sh` + `testdata/parity/` — gate golden lintas repo.
-- `TaskDev/` — guideline arsitektur dan histori keputusan; **lokal saja**
-  (di-`.gitignore`, tidak ikut ter-clone).
-- `.github/workflows/ci.yml` — check, consumer test, parity gate, build, cross-compile.
-- `.github/workflows/release.yml` — rilis CalVer + artifact.
-
-Domain contoh bernama `Host` di `internal/mcpserver/domain.go`. Saat memakai
-template ini, ganti `Host` dan `tools_*.go` dengan domain target; berkas
-transport/options tidak perlu diubah.
-
-## Dua cara memakai
-
-Ada dua mode konsumsi:
-
-1. **Impor `github.com/neflalabs/mayamcp/api` (jalur kanonik).** Package `api`
-   adalah fasad publik yang membungkus `internal/app` dan `internal/mcpserver`
-   (yang tidak bisa diimpor langsung dari modul lain karena aturan `internal`
-   Go). Helper `ResolveIdentity`, `NewLogger`, `ActivityMiddleware`,
-   `AddTextTool`, dan `AddUntypedTool` bisa dipakai satu per satu, atau lewat
-   `api.NewCore`/`api.NewWithOptions` bila lifecycle juga diambil.
-2. **Salin template lalu edit `internal/` (fork/prototipe).** `make rename
-   MODULE=...` meng-instansiasi template di module path lain. Jalur ini tetap
-   tersedia, tetapi perbaikan inti tidak otomatis ikut — pilih impor untuk
-   konsumsi jangka panjang.
-
-Repo publiknya `github.com/neflalabs/mayamcp`; rilis terbaru `v2026.11.8`
-(artefak dan catatan GitHub Release).
-
-**Catatan Go modules:** tag CalVer `v2026.11.8` dibaca Go sebagai *major version*
-`v2026`, sehingga `go get ...@v2026.11.8` ditolak. Untuk mengimpor pakai
-branch/commit yang menghasilkan pseudo-version:
+A transport-agnostic Go starter template **and** importable library for building
+[Model Context Protocol](https://modelcontextprotocol.io/) servers. The core
+(`internal/mcpserver`) knows nothing about HTTP, stdio, authentication, UI, or
+the operating system — the front end chooses a transport at startup.
 
 ```sh
+go get github.com/neflalabs/mayamcp@main
+```
+
+> **Version note:** release tags follow CalVer (`v2026.11.8`) and are used for
+> binaries and GitHub Releases. Go modules read `v2026` as a major version, so
+> import with `@main` or a commit hash instead of a CalVer tag. See
+> [Versioning](#versioning).
+
+## Why "MayaMCP"?
+
+- **Pronunciation.** *MAH-yah* + `MCP`: short, familiar, and easy for
+  non-Indonesian speakers to say, while still distinct as a brand.
+- **Meaning.** In Indonesian/Sanskrit, *maya* evokes creation, form,
+  transformation, and openness. It fits a **genesis / seed** that is not yet
+  locked to one domain — ready to become a local tool server, an internal
+  service, an API integration, or a domain-specific MCP server.
+- **Relationship to NgodingMCP.** `NgodingMCP` was born from a concrete need:
+  a sandboxed editor/workspace plus an operations control panel. MayaMCP takes
+  the same engineering discipline and MCP patterns and offers them as a
+  cleaner, more flexible foundation **without the old appliance identity**.
+  NgodingMCP is now the reference consumer; MayaMCP is the source of truth for
+  core fixes.
+
+## Design principles
+
+1. **Small core.** Anything reusable by any domain belongs in the core;
+   anything domain-specific belongs in the consumer.
+2. **Stable contract.** Tool names/schemas and `tools/list` are public API,
+   locked by a golden test and a byte budget.
+3. **Privacy by construction.** The only built-in observability output is a
+   one-line activity record that never carries commands, file contents,
+   tokens, or secrets.
+4. **One source of truth.** Identity and configuration resolve exactly once
+   and feed both `initialize.serverInfo` and `describe_server`.
+5. **Low dependency surface.** Go standard library plus the official MCP Go
+   SDK.
+
+## Quick start
+
+### 1. Use it as a library (recommended)
+
+```sh
+mkdir my-mcp && cd my-mcp
+go mod init example.com/my-mcp
 go get github.com/neflalabs/mayamcp@main
 go mod tidy
 ```
 
-Untuk versi terpin, pakai hash commit, mis. `@af55bb9`. Tag `v20*` tetap dipakai
-untuk rilis biner, bukan versi modul Go.
-
-Untuk pengembangan lintas repo (mayamcp + ngodingmcp), pakai `go.work` di
-direktori induk atau `replace github.com/neflalabs/mayamcp => ../mayamcp`.
-Panduan lengkap ada di [`docs/quickstart.md`](docs/quickstart.md) dan
-[`docs/api-guide.md`](docs/api-guide.md).
-
-Contoh pemakaian sebagai pustaka:
-
 ```go
+package main
+
 import (
 	"context"
+	"log"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-
 	"github.com/neflalabs/mayamcp/api"
 )
 
@@ -84,66 +70,147 @@ type host struct{}
 func (host) Name() string    { return "my-server" }
 func (host) Version() string { return "v1" }
 
-func serve() error {
-	// Versi diambil dari host.Version(); tidak perlu ditulis dua kali.
-	srv := api.NewWithOptions(host{}, api.Options{})
-	return srv.Run(context.Background(), &mcp.StdioTransport{})
+type echoArgs struct {
+	Label string `json:"label" jsonschema:"Label to echo"`
+}
+
+func echo(_ context.Context, _ *mcp.CallToolRequest, in echoArgs) (*mcp.CallToolResult, string, error) {
+	if in.Label == "" {
+		return &mcp.CallToolResult{
+			IsError: true,
+			Content: []mcp.Content{&mcp.TextContent{Text: "label is required"}},
+		}, "", nil
+	}
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: in.Label}}}, in.Label, nil
+}
+
+func main() {
+	srv := api.NewWithOptions(host{}, api.Options{
+		Register: func(s *mcp.Server) {
+			api.AddTextTool(s, &mcp.Tool{Name: "echo", Description: "Echo a label."}, echo)
+		},
+	})
+	if err := srv.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
+		log.Fatal(err)
+	}
 }
 ```
 
-Untuk mengganti starter tool `ping`/`describe_server`, berikan `Register`:
+A non-nil `Register` replaces the starter tools (`ping`, `describe_server`).
+Leave it out to keep them. More examples live in `api/example_test.go`.
+
+### 2. Use the C-lite core
 
 ```go
-srv := api.NewWithOptions(host{}, api.Options{
-	Register: func(s *mcp.Server) {
-		api.AddTextTool(s, &mcp.Tool{Name: "echo", Description: "Echo a label."}, echoHandler)
-	},
+core := api.NewCore(api.Config{
+	Name:    "my-server",
+	Version: "v1",
+	Register:          registerDomainTools,
+	RegisterResources: registerResources,
+	Middleware:        []mcp.Middleware{safeErrorMiddleware},
 })
+
+// core.Server is ready for stdio, Streamable HTTP, or an in-memory transport.
 ```
 
-Fasad ini hanya berisi alias tipe dan fungsi delegasi; tidak ada logika yang
-ditulis ulang. Field baru pada `app.Config` otomatis tersedia lewat
-`api.Config`.
+`NewCore` assembles identity, logging, hooks, and the activity middleware in a
+defined order. Set `DisableActivityMiddleware: true` when you provide your own
+domain-aware middleware.
 
-## Menjalankan
+### 3. Fork the template
+
+```sh
+make rename MODULE=github.com/acme/custom-mcp
+```
+
+This rewrites `go.mod`, imports, the binary name, `cmd/`, CI, `.gitignore`, and
+the `consumer/` module. Forks do not receive core fixes automatically — use the
+library path for long-lived consumers.
+
+## Running the example binary
 
 ```sh
 make build
-./mayamcp                         # stdio, untuk client lokal
+./mayamcp                                    # stdio (default)
 ./mayamcp -transport=http -addr=127.0.0.1:8080
-./mayamcp -log-level=debug -log-json     # log JSON untuk container/systemd
+./mayamcp -log-level=debug -log-json         # JSON logs for containers/systemd
 ```
 
-`-log-level` menerima `debug`, `info` (default), `warn`/`warning`, atau `error`;
-nilai lain menyebabkan exit code `2`.
+`-log-level` accepts `debug`, `info` (default), `warn`/`warning`, and `error`;
+anything else exits with code `2`. HTTP uses Streamable HTTP with
+`Stateless: true`. Authentication and TLS are deliberately left to the
+embedding application or a reverse proxy.
 
-HTTP memakai Streamable HTTP dengan `Stateless: true`. Autentikasi/TLS
-diserahkan ke aplikasi atau reverse proxy yang menanam template ini.
+## Public API at a glance
 
-## Kompatibilitas & versi
+| Need | Use |
+|---|---|
+| Build a server with your own tools | `api.NewWithOptions` or `api.NewCore` |
+| Reuse identity/logging on your own `mcp.Server` | `api.ResolveIdentity`, `api.NewLogger` |
+| Register a text-heavy tool without `outputSchema` | `api.AddTextTool` |
+| Register a short JSON confirmation without `outputSchema` | `api.AddUntypedTool` |
+| Log tool activity yourself | `api.ActivityMiddleware`, `api.MeasureActivity`, `api.SanitizeTarget` |
+| Count tools from a consumer | `api.CountTools` |
 
-CalVer `vYYYY.MM.MINOR`. Paket `api` adalah satu-satunya kontrak publik:
-penambahan fungsi/field boleh tanpa kenaikan MINOR; penghapusan atau perubahan
-tanda tangan hanya pada MINOR dengan catatan migrasi di `CHANGELOG.md`. Kontrak
-tool (`tools.golden.json`) dan format `ActivityPrefix` tidak berubah lewat
-perubahan `api` biasa.
+`api/` is the only supported import surface; `internal/` cannot be imported
+from another module. See [`docs/api-guide.md`](docs/api-guide.md).
 
-## Test
+## Project layout
+
+```text
+api/                    public façade (aliases + delegation only)
+internal/mcpserver/     transport-agnostic core: identity, tools, activity log
+internal/app/           NewCore builder without a listener
+cmd/mayamcp/            transport selector (stdio / Streamable HTTP)
+consumer/               separate module importing only api (acceptance test)
+docs/                   developer guides (start at docs/README.md)
+scripts/parity-check.sh cross-repo tool-contract gate
+testdata/parity/        recorded golden hash for ngodingmcp
+.github/workflows/      CI and CalVer release
+```
+
+`TaskDev/` holds the local architecture notebook and audit trail. It is
+intentionally gitignored and not part of this repository.
+
+## Testing & quality
 
 ```sh
 make test            # go test -count=1 ./...
-make check           # gofmt, vet, staticcheck, go test -race
-make consumer-test   # modul konsumen eksternal (hanya import api)
-make parity-check    # golden ngodingmcp + build dua repo (lewati bila tak ada)
-make release VERSION=v2026.11.8   # artifact lintas platform
-make rename MODULE=github.com/acme/custom-mcp   # fork/prototipe
+make check           # gofmt, go vet, staticcheck, go test -race
+make consumer-test   # external module, imports only api
+make parity-check    # ngodingmcp golden unchanged + both modules build
 ```
 
-Kontrak tool dikunci oleh `internal/mcpserver/testdata/tools.golden.json`.
-Setelah mengubah tool secara sengaja:
+The `tools/list` contract is locked by
+`internal/mcpserver/testdata/tools.golden.json` (884-byte pretty file,
+601-byte compact payload) with a 2048-byte budget. Regenerate intentionally:
 
 ```sh
 go test ./internal/mcpserver -run TestToolContract -args -update
 ```
 
-Anggaran `tools/list` dijaga `TestToolsListBudget`.
+Bugfixes follow the Prove-It pattern: write the failing reproduction first.
+Coverage is kept at or above 87.4%.
+
+## Versioning
+
+CalVer is `vYYYY.MM.MINOR`. Additions to `api` are allowed without a MINOR bump;
+removals or signature changes require one plus a migration note in
+[`CHANGELOG.md`](CHANGELOG.md). The tool contract and the `tool: ` activity
+prefix never change through a routine `api` change.
+
+Release tags (`v20*`) drive `.github/workflows/release.yml` and binary
+artifacts. Because Go interprets `v2026` as a major-version suffix, module
+consumers should pin a commit or track `@main` rather than using the CalVer tag.
+
+## Documentation
+
+Start with [`docs/README.md`](docs/README.md). The most useful next reads are
+[`docs/quickstart.md`](docs/quickstart.md),
+[`docs/api-guide.md`](docs/api-guide.md), and
+[`docs/observability.md`](docs/observability.md).
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`AGENTS.md`](AGENTS.md) for
+conventions, quality gates, and the golden-test workflow.

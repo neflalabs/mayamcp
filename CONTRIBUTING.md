@@ -1,84 +1,82 @@
-# Berkontribusi ke MayaMCP
+# Contributing to MayaMCP
 
-MayaMCP adalah template transport-agnostic. Aturan utamanya sederhana: **inti
-tetap kecil, kontrak tetap stabil, perubahan dibuktikan dengan test.**
+MayaMCP is a template: keep the core small, the contract stable, and every
+change backed by a test.
 
-## Sebelum mulai
+## Before you start
 
-1. Baca [`AGENTS.md`](AGENTS.md) untuk konvensi (golden test, identitas, batas
-   core vs appliance, TaskDev lokal).
-2. Baca [`docs/README.md`](docs/README.md) untuk peta dokumentasi.
-3. Pasang Go 1.26+ dan jalankan `make check` — baseline harus hijau sebelum
-   menambah apa pun (Stop-the-Line).
+1. Read [`AGENTS.md`](AGENTS.md) for conventions (golden tests, identity,
+   core vs appliance boundary, local TaskDev notebook).
+2. Read [`docs/README.md`](docs/README.md) for the documentation map.
+3. Install Go 1.26+ and run `make check`. The baseline must be green before you
+   add anything (Stop-the-Line).
 
-## Alur kerja
+## Workflow
 
 ```sh
-make test            # iterasi cepat
+make test            # fast iteration
 make check           # gofmt, vet, staticcheck, go test -race
-make consumer-test   # jalur import eksternal tidak boleh rusak
-make parity-check    # golden ngodingmcp tidak berubah (butuh repo saudara)
+make consumer-test   # external import path must keep working
+make parity-check    # ngodingmcp golden unchanged (needs the sibling repo)
 ```
 
-Bila `make check` gagal, perbaiki akar masalah dulu. Jangan menambah fitur di
-atas kegagalan.
+If `make check` fails, fix the root cause before adding features.
 
-## Prove-It Pattern
+## Prove-It pattern
 
-Untuk bugfix dan perubahan kontrak:
+For bugfixes and contract changes:
 
-1. Tulis test yang **gagal lebih dulu** (reproduksi).
-2. Perbaiki kode produksi sampai test hijau.
-3. Jangan menonaktifkan test atau menaikkan budget sebagai jalan pintas.
+1. Write a **failing** reproduction test first.
+2. Fix the production code until it passes.
+3. Never disable a test or raise a budget as a shortcut.
 
-Contoh nyata ada di `internal/mcpserver/activity_test.go` dan
-`cmd/mayamcp/main_test.go`.
+See `internal/mcpserver/activity_test.go` and `cmd/mayamcp/main_test.go`.
 
-## Kontrak tool
+## Tool contract
 
-`internal/mcpserver/testdata/tools.golden.json` mengunci `tools/list`
-(file pretty 884 byte, payload compact 601 byte dari budget 2048).
+`internal/mcpserver/testdata/tools.golden.json` locks `tools/list` (884-byte
+pretty file, 601-byte compact payload, 2048-byte budget).
 
-- Perubahan nama/deskripsi/schema tool harus disengaja.
-- Regenerasi:
+- Renames, description changes, and schema changes must be deliberate.
+- Regenerate with:
   ```sh
   go test ./internal/mcpserver -run TestToolContract -args -update
   ```
-- Review diff golden di commit yang sama. Budget tidak naik tanpa keputusan
-  sadar.
+- Review the golden diff in the same commit. The budget never rises without an
+  explicit decision.
 
-## Batas arsitektur
+## Architecture boundary
 
-| Masuk ke inti | Tetap di konsumen |
+| Belongs in the core | Belongs in the consumer |
 |---|---|
-| Host interface, identitas + default, logger, activity middleware | Auth/OAuth, Web UI/TUI, systemd, config store |
-| Helper `api`, `ping`/`describe_server`, golden + budget | Tool domain, filesystem, worker, resource kustom |
+| `Host` interface, identity + defaults, logger, activity middleware | Auth/OAuth, Web UI/TUI, systemd, config store |
+| `api/` façade, `ping`/`describe_server`, golden + budget tests | Domain tools, filesystem, workers, custom resources |
 
-`internal/` tidak bisa diimpor dari modul lain — semua yang publik lewat
-`api/`. Rincian ada di `docs/api-guide.md`.
+`internal/` cannot be imported from another module — everything public goes
+through `api/`. See [`docs/api-guide.md`](docs/api-guide.md).
 
-## Perubahan perilaku pengguna
+## User-facing changes
 
-Wajib disertai update `README.md`/`docs/`. Kalau menambah exported function di
-`api`, tambahkan godoc yang menjelaskan default dan kapan dipakai.
+Update `README.md`/`docs/` whenever behaviour changes. When adding an exported
+function to `api`, write godoc that states its defaults and when to use it.
 
-## Commit & rilis
+## Commits and releases
 
-- Pesan commit menjelaskan *why*, bukan hanya *what*.
-- CalVer `vYYYY.MM.MINOR`; rilis dibuat lewat tag `v20*` atau
-  `workflow_dispatch` pada `.github/workflows/release.yml`.
-- `CHANGELOG.md` dihasilkan dari notebook TaskDev:
+- Commit messages explain *why*, not just *what*.
+- CalVer is `vYYYY.MM.MINOR`; releases are created by a `v20*` tag or the
+  `workflow_dispatch` trigger in `.github/workflows/release.yml`.
+- `CHANGELOG.md` is generated from the local TaskDev notebook:
   ```sh
   taskdev_cli.py changelog --calver=v2026.11
   ```
-- Notebook TaskDev (`TaskDev/`) sengaja privat/ter-`.gitignore`. Jangan
-  mengharapkannya ada di kloning publik; ringkasan keputusan ada di `docs/`.
+- `TaskDev/` is intentionally private/gitignored. Do not expect it in a public
+  clone; key decisions are summarised in `docs/`.
 
-## Checklist PR
+## Pull request checklist
 
-- [ ] `make check`, `make consumer-test`, `make parity-check` hijau.
-- [ ] Prove-It dipakai untuk bugfix/perubahan kontrak.
-- [ ] Golden/budget tidak berubah, atau diperbarui di commit yang sama.
-- [ ] `docs/` dan `README.md` diperbarui bila perilaku berubah.
-- [ ] Tidak ada secret, path host, atau identitas konsumen di inti/log.
-- [ ] Tidak ada dependency baru tanpa justifikasi.
+- [ ] `make check`, `make consumer-test`, `make parity-check` pass.
+- [ ] Prove-It was used for bugfixes/contract changes.
+- [ ] Golden and budget unchanged, or updated in the same commit.
+- [ ] `README.md`/`docs/` updated for user-facing changes.
+- [ ] No secrets, host paths, or consumer identity in the core or logs.
+- [ ] No new dependency without justification.

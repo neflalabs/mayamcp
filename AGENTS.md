@@ -21,7 +21,8 @@ Panduan singkat untuk AI yang bekerja di repo template ini.
 - Jangan menaikkan budget `tools/list` tanpa keputusan sadar.
 - Tool dengan hasil teks besar memakai `addTextTool`; `outputSchema` lewat
   `mcp.AddTool` hanya untuk record kecil yang memang dibutuhkan client.
-  Pola ini diwariskan dari `ngodingmcp` (lihat `docs/mcp-as-template.md`).
+  Pola ini diwariskan dari `ngodingmcp` (arsip lokal:
+  `TaskDev/Note/MCP_AS_TEMPLATE.md`).
 - Perubahan perilaku pengguna harus disertai update `README.md` / `docs/`.
 - `TaskDev/README.md` berisi nama proyek `MayaMCP`. CLI taskdev punya fallback
   hardcoded `Nefla POS`, jadi setiap selesai `taskdev_cli.py sync` (terutama
