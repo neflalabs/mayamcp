@@ -91,8 +91,10 @@ function to `api`, write godoc that states its defaults and when to use it.
 ## Commits and releases
 
 - Commit messages explain *why*, not just *what*.
-- CalVer is `vYYYY.MM.MINOR`; releases are created by a `v20*` tag or the
-  `workflow_dispatch` trigger in `.github/workflows/release.yml`.
+- Module versions are semver `v0.MINOR.PATCH`; releases are created by a
+  `v0.*` tag or the `workflow_dispatch` trigger in `.github/workflows/release.yml`.
+  Older `v2026.11.x` tags are historical binary labels and are ignored by the
+  release workflow.
 - `CHANGELOG.md` is generated from the local TaskDev notebook:
   ```sh
   taskdev_cli.py changelog --calver=v2026.11

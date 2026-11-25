@@ -108,9 +108,10 @@ counting.
 
 ## Compatibility
 
-CalVer is `vYYYY.MM.MINOR`. Additions to `api` are allowed without a MINOR bump;
-removals or signature changes require one plus a migration note in
-`CHANGELOG.md`. The tool contract and `ActivityPrefix` never change through a
-routine `api` change.
+Module versions are semver `v0.MINOR.PATCH`. Additions to `api` are allowed
+without a MINOR bump; removals or signature changes require one plus a migration
+note in `CHANGELOG.md`. The tool contract and `ActivityPrefix` never change
+through a routine `api` change. CalVer labels in the changelog are human-readable
+release dates, not module versions.
 
 See the package godoc for details: `go doc github.com/neflalabs/mayamcp/api`.

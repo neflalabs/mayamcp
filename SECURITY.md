@@ -5,7 +5,7 @@
 | Version | Supported |
 |---|---|
 | `v0.1.0` / latest `main` | ✅ |
-| Earlier CalVer tags (`v2026.11.x`) | ✅ for critical fixes |
+| Earlier semver releases (`v0.x.y`) | ✅ for critical fixes |
 | Older commits / forks | ❌ |
 
 MayaMCP is a template and library; fixes land on `main` first and are then

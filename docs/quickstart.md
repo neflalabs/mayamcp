@@ -4,16 +4,18 @@ From zero to a running MCP server in a few minutes. Requires Go 1.26+.
 
 ## Path 1 — Import the library (recommended)
 
-Canonical module: `github.com/neflalabs/mayamcp`. The latest binary release is
-`v2026.11.8`; for Go modules use `@main` or a commit hash, not the CalVer tag
-(because `v2026` is read as a major version).
+Canonical module: `github.com/neflalabs/mayamcp`. The current module version is
+`v0.1.0` (the code previously labelled `v2026.11.8`). Old `v2026.11.x` tags are
+binary-release artefacts and are not valid `go get` versions.
 
 ```sh
 mkdir my-mcp && cd my-mcp
 go mod init example.com/my-mcp
-go get github.com/neflalabs/mayamcp@main
+go get github.com/neflalabs/mayamcp@v0.1.0
 go mod tidy
 ```
+
+Until `v0.1.0` is pushed, use `@main` or a commit hash instead.
 
 A minimal server with one tool of your own (starter tools are not included):
 
@@ -135,7 +137,7 @@ make parity-check   # ngodingmcp golden unchanged + both modules build
 
 | Symptom | Cause / fix |
 |---|---|
-| `invalid version: module path must match major version (".../v2026")` | CalVer tags cannot be used with `go get`; use `@main` or a commit hash |
+| `invalid version: module path must match major version (".../v2026")` | Do not use legacy `v2026.11.x` tags; use `@v0.x.y`, `@main`, or a commit hash |
 | `package ... is not in std` / module not found | Missing `go get` or `replace`; run `go mod tidy` |
 | `AddTool "x": missing input schema` | Use generic `mcp.AddTool`, not manual `s.AddTool`; or `api.AddTextTool` |
 | `tools/list` suddenly grows | The new tool carries an `outputSchema`; prefer `api.AddTextTool`/`api.AddUntypedTool` |

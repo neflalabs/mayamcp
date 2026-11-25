@@ -23,7 +23,8 @@ A short explanation of the name lives in
 
 - [`README.md`](../README.md) — project overview, `make` targets, versioning.
 - [`AGENTS.md`](../AGENTS.md) — conventions for agents and contributors.
-- [`CHANGELOG.md`](../CHANGELOG.md) — CalVer release notes.
+- [`CHANGELOG.md`](../CHANGELOG.md) — release notes (semver releases, CalVer
+  date labels).
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md) — contribution workflow and gates.
 - `consumer/` — a real module that imports only `api`
   ([`consumer/README.md`](../consumer/README.md)).

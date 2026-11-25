@@ -6,12 +6,13 @@ A transport-agnostic Go starter template **and** importable library for building
 the operating system — the front end chooses a transport at startup.
 
 ```sh
-go get github.com/neflalabs/mayamcp@main
+go get github.com/neflalabs/mayamcp@v0.1.0
 ```
 
-> **Version note:** release tags follow CalVer (`v2026.11.8`) and are used for
-> binaries and GitHub Releases. Go modules read `v2026` as a major version, so
-> import with `@main` or a commit hash instead of a CalVer tag. See
+> **Version note:** `v0.x.y` is the only version scheme for modules and GitHub
+> Releases. Older `v2026.11.x` tags are historical binary-release labels and
+> must not be used with `go get` — Go reads `v2026` as a major version. While
+> the semver tag is still local, use `@main` or a commit hash. See
 > [Versioning](#versioning).
 
 ## Why "MayaMCP"?
@@ -166,7 +167,7 @@ consumer/               separate module importing only api (acceptance test)
 docs/                   developer guides (start at docs/README.md)
 scripts/parity-check.sh cross-repo tool-contract gate
 testdata/parity/        recorded golden hash for ngodingmcp
-.github/workflows/      CI and CalVer release
+.github/workflows/      CI and semver release
 ```
 
 `TaskDev/` holds the local architecture notebook and audit trail. It is
@@ -196,16 +197,16 @@ in `main`).
 
 ## Versioning
 
-CalVer is `vYYYY.MM.MINOR`. Additions to `api` are allowed without a MINOR bump;
-removals or signature changes require one plus a migration note in
+Versions are semver `v0.MINOR.PATCH`. Additions to `api` are allowed without a
+MINOR bump; removals or signature changes require one plus a migration note in
 [`CHANGELOG.md`](CHANGELOG.md). The tool contract and the `tool: ` activity
 prefix never change through a routine `api` change.
 
-Release tags (`v20*`) drive `.github/workflows/release.yml` and binary
-artifacts. Module versions use independent semver tags: `v0.1.0` currently
-points at the same commit as the `v2026.11.8` release baseline. Because Go
-interprets `v2026` as a major-version suffix, module consumers should pin
-`@v0.1.0` (once pushed) or track `@main` / a commit hash — never the CalVer tag.
+`v0.*` tags drive `.github/workflows/release.yml`, GitHub Releases, and binary
+artifacts. `v0.1.0` is the current baseline (the same code previously labelled
+`v2026.11.8`). The `v2026.11.x` tags remain only as historical artefacts; do not
+use them with `go get`. While `v0.1.0` is still local, track `@main` or a commit
+hash instead.
 
 ## Documentation
 

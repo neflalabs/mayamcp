@@ -25,7 +25,7 @@ import (
 )
 
 // defaultVersion is overridable at build time with -ldflags
-// "-X main.defaultVersion=v2026.11.2".
+// "-X main.defaultVersion=v0.1.0".
 var defaultVersion = mcpserver.DefaultVersion
 
 // parseLogLevel maps the CLI flag to a slog level. Invalid values are an

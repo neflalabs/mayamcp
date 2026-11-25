@@ -1,12 +1,15 @@
 # Changelog — MayaMCP
 
-CalVer release notes (`vYYYY.MM.MINOR`), generated from the local TaskDev
-notebook with `taskdev changelog --calver=v2026.11`. TaskDev is private
-(`.gitignore`), so the references below are local paths, not public links.
-Binary artifacts and GitHub Release notes are at
-<https://github.com/neflalabs/mayamcp/releases> (tags `v2026.11.7`, `v2026.11.8`).
-Go module versions use separate semver tags (`v0.1.0` = the `v2026.11.8`
-baseline), because Go reads `v2026` as a major-version suffix.
+Release notes generated from the local TaskDev notebook with
+`taskdev changelog --calver=v2026.11`. TaskDev is private (`.gitignore`), so the
+references below are local paths, not public links.
+
+The labels below are CalVer **dates for human readability**. Published module
+versions and GitHub Releases use semver `v0.x.y` — currently `v0.1.0`, the same
+code once labelled `v2026.11.8`. The older `v2026.11.x` tags are historical
+binary-release artefacts and are not valid `go get` versions (Go reads `v2026`
+as a major version). Release artifacts:
+<https://github.com/neflalabs/mayamcp/releases>.
 
 <!-- TASKDEV:CHANGELOG:START -->
 
