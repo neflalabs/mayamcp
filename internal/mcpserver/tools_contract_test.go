@@ -88,3 +88,49 @@ func TestToolContract(t *testing.T) {
 		t.Errorf("tool contract changed (%d tools); if intended, rerun with -args -update and review the diff", len(tools))
 	}
 }
+
+func TestToolCallResults(t *testing.T) {
+	session := newTestSession(t)
+	ctx := context.Background()
+
+	ping, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "ping"})
+	if err != nil {
+		t.Fatalf("CallTool ping: %v", err)
+	}
+	if len(ping.Content) != 1 {
+		t.Fatalf("ping content blocks = %d, want 1", len(ping.Content))
+	}
+	text, ok := ping.Content[0].(*mcp.TextContent)
+	if !ok || text.Text != "pong" {
+		t.Fatalf("ping content = %#v, want text \"pong\"", ping.Content[0])
+	}
+	if ping.StructuredContent != nil {
+		t.Errorf("ping structuredContent = %#v, want nil", ping.StructuredContent)
+	}
+
+	desc, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "describe_server"})
+	if err != nil {
+		t.Fatalf("CallTool describe_server: %v", err)
+	}
+	if len(desc.Content) != 1 {
+		t.Fatalf("describe_server content blocks = %d, want 1", len(desc.Content))
+	}
+	text, ok = desc.Content[0].(*mcp.TextContent)
+	if !ok || text.Text != "test-server v1" {
+		t.Fatalf("describe_server content = %#v, want text \"test-server v1\"", desc.Content[0])
+	}
+	raw, err := json.Marshal(desc.StructuredContent)
+	if err != nil {
+		t.Fatalf("marshal structuredContent: %v", err)
+	}
+	var out struct {
+		Name    string `json:"name"`
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatalf("unmarshal structuredContent: %v", err)
+	}
+	if out.Name != "test-server" || out.Version != "v1" {
+		t.Errorf("describe_server structuredContent = %+v", out)
+	}
+}

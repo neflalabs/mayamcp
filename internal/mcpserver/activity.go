@@ -21,17 +21,19 @@ const ActivityPrefix = "tool: "
 const maxTargetLen = 60
 
 // activityMiddleware logs one concise line per tools/call, for example
-// "edit_file main.go ✓ 3ms" or "run_command go test ./... ✗ exit 1 1.2s".
-// The line carries a compact token annotation for what the result cost,
-// for example " ~8.3k tok (ct 4.4k + st 3.8k)"; exact byte and token counts
-// for the `content` and `structuredContent` payloads are also attached as
-// slog attributes.
+// "ping ✓ 850µs" or "describe_server ✓ 1.2ms". The line carries a compact
+// token estimate for the result, for example " ~10 tok"; exact byte counts
+// and estimated token counts (bytes/4) for the `content` and
+// `structuredContent` payloads are also attached as slog attributes.
 //
-// Only the tool name, its main target (a path, a command or a process name),
-// the outcome, the duration and the token annotation are logged. File
-// contents, edit text, environment values, tokens and error messages are
-// never logged.
-func activityMiddleware(logger *slog.Logger, namespace string) mcp.Middleware {
+// Only the tool name, a sanitized target derived from an explicit allowlist,
+// the outcome, the duration and the size annotation are logged. Commands,
+// file contents, edit text, environment values, URL userinfo and query
+// strings (including signatures and Bearer tokens), error messages and
+// tokens are never logged. A consumer can supply a TargetExtractor for
+// domain-specific argument keys; its output is always sanitized with
+// cleanTarget before it reaches the log.
+func activityMiddleware(logger *slog.Logger, extractor TargetExtractor) mcp.Middleware {
 	return func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 			if method != "tools/call" {
@@ -43,9 +45,9 @@ func activityMiddleware(logger *slog.Logger, namespace string) mcp.Middleware {
 			name, target := "unknown", ""
 			if r, ok := req.(*mcp.CallToolRequest); ok && r.Params != nil {
 				name = cleanTarget(r.Params.Name)
-				target = activityTarget(r.Params.Arguments)
+				target = resolveTarget(name, r.Params.Arguments, extractor)
 			}
-			ok, detail := activityOutcomeWith(res, err, namespace)
+			ok, detail := activityOutcomeWith(res, err)
 			line := ActivityLine(name, target, ok, detail, time.Since(started))
 			attrs := []any{}
 			if size, ok := measureResult(res); ok {
@@ -87,7 +89,9 @@ func ActivityLine(tool, target string, ok bool, detail string, d time.Duration) 
 }
 
 // activityOutcomeWith decides success and a short, content-free detail.
-func activityOutcomeWith(res mcp.Result, err error, namespace string) (bool, string) {
+// Tool-level failures are reported through CallToolResult.IsError; transport
+// and protocol failures arrive as err. Result metadata is not inspected.
+func activityOutcomeWith(res mcp.Result, err error) (bool, string) {
 	if err != nil {
 		return false, "error"
 	}
@@ -98,46 +102,14 @@ func activityOutcomeWith(res mcp.Result, err error, namespace string) (bool, str
 	if r.IsError {
 		return false, "error"
 	}
-	// run_command reports a failing command as a normal result with a
-	// non-zero exit code in _meta (see runMetaWith); surface that as a failure.
-	if len(r.Meta) > 0 {
-		if raw, mErr := json.Marshal(r.Meta); mErr == nil {
-			var meta map[string]any
-			if json.Unmarshal(raw, &meta) == nil {
-				exitKey, timedKey := metaKeys(namespace)
-				timed, _ := meta[timedKey].(bool)
-				code, hasCode := metaNumber(meta[exitKey])
-				switch {
-				case timed:
-					return false, "timed out"
-				case hasCode && code != 0:
-					return false, fmt.Sprintf("exit %d", code)
-				}
-			}
-		}
-	}
 	return true, ""
 }
 
-// metaNumber accepts the numeric forms _meta can carry: int from a local
-// result, float64 after a JSON round trip, or json.Number from a decoder.
-func metaNumber(v any) (int, bool) {
-	switch n := v.(type) {
-	case int:
-		return n, true
-	case float64:
-		return int(n), true
-	case json.Number:
-		i, err := n.Int64()
-		return int(i), err == nil
-	}
-	return 0, false
-}
-
-// resultSize summarises what one tool result costs in context tokens, kept
-// separate for the two payloads a client may forward to the model: the
-// `content` block (what the model reads) and `structuredContent` (the same
-// data as JSON, when the client passes both).
+// resultSize summarises the exact byte size of one tool result and the
+// corresponding estimated context-token counts (bytes/4). The two payloads a
+// client may forward to the model are kept separate: the `content` block (what
+// the model reads) and `structuredContent` (the same data as JSON, when the
+// client passes both).
 type resultSize struct {
 	contentBytes     int64
 	contentTokens    int64
@@ -145,58 +117,98 @@ type resultSize struct {
 	structuredTokens int64
 }
 
-// measureResult computes the result size. It reports false when res is not a
-// tool result (protocol-level error or a non-tool method).
+// byteCounter implements io.Writer without allocating a buffer, so JSON byte
+// counting does not duplicate a large tool payload on every call.
+type byteCounter int64
+
+func (c *byteCounter) Write(p []byte) (int, error) {
+	*c += byteCounter(len(p))
+	return len(p), nil
+}
+
+// jsonByteLen matches len(json.Marshal(v)) without building the JSON buffer.
+// json.Encoder.Encode appends a trailing newline, which is subtracted here.
+func jsonByteLen(v any) int64 {
+	var c byteCounter
+	if err := json.NewEncoder(&c).Encode(v); err != nil {
+		return 0
+	}
+	if c > 0 {
+		return int64(c) - 1
+	}
+	return 0
+}
+
+// measureResult computes exact byte counts and bytes/4 token estimates. It
+// reports false when res is not a tool result (protocol-level error or a
+// non-tool method).
 func measureResult(res mcp.Result) (resultSize, bool) {
 	var s resultSize
 	r, ok := res.(*mcp.CallToolResult)
 	if !ok || r == nil {
 		return s, false
 	}
-	if raw, err := json.Marshal(r.Content); err == nil {
-		s.contentBytes = int64(len(raw))
+	if len(r.Content) > 0 {
+		s.contentBytes = jsonByteLen(r.Content)
 		s.contentTokens = s.contentBytes / 4
 	}
 	if r.StructuredContent != nil {
-		if raw, err := json.Marshal(r.StructuredContent); err == nil {
-			s.structuredBytes = int64(len(raw))
-			s.structuredTokens = s.structuredBytes / 4
-		}
+		s.structuredBytes = jsonByteLen(r.StructuredContent)
+		s.structuredTokens = s.structuredBytes / 4
 	}
 	return s, true
 }
 
 // resultSizeSuffix renders the compact token annotation appended to the
-// activity line, for example " ~8.3k tok (ct 4.4k + st 3.8k)". Zero-cost
-// results get no suffix. Exact bytes and tokens are also logged as slog
-// attributes (content_bytes, content_tokens, structured_bytes,
-// structured_tokens) for log analysis.
+// activity line, for example " ~10 tok". A client forwards either `content`
+// or `structuredContent` (or both), so adding the two estimates would double
+// count the same data; the annotation reports the larger of the two as the
+// primary payload. Exact per-payload byte counts and token estimates remain
+// available as slog attributes (content_bytes, content_tokens,
+// structured_bytes, structured_tokens). Zero-cost results get no suffix.
 func resultSizeSuffix(s resultSize) string {
-	total := s.contentTokens + s.structuredTokens
-	if total <= 0 {
+	tokens := s.contentTokens
+	if s.structuredTokens > tokens {
+		tokens = s.structuredTokens
+	}
+	if tokens <= 0 {
 		return ""
 	}
-	return fmt.Sprintf(" ~%s tok (ct %s + st %s)", humanCount(total), humanCount(s.contentTokens), humanCount(s.structuredTokens))
+	return fmt.Sprintf(" ~%s tok", humanCount(tokens))
 }
 
 // humanCount compacts a count with one decimal and a k/M suffix; values
-// below 1000 are printed exactly.
+// below 1000 are printed exactly. Values that would round to "1000.0k" are
+// promoted to M so the annotation stays clean.
 func humanCount(n int64) string {
 	switch {
 	case n < 1000:
 		return fmt.Sprintf("%d", n)
-	case n < 1_000_000:
+	case n < 999_950: // one decimal would otherwise round up to "1000.0k"
 		return fmt.Sprintf("%.1fk", float64(n)/1000)
 	default:
 		return fmt.Sprintf("%.1fM", float64(n)/1_000_000)
 	}
 }
 
-// activityTarget extracts the main target from the call arguments. Only
-// keys that name a target are read; content-bearing keys (content, old, new,
-// edits, new_content, replacement, env, token, url) are never touched. For
-// source_url only the host is kept: signed URLs carry a token in the query.
-// A git remote url is never logged; git_remote shows only the remote name.
+// TargetExtractor derives a short target label from a tool call. The
+// middleware always applies cleanTarget to its result; implementations must
+// still never return secrets. A nil extractor uses the generic default below.
+type TargetExtractor func(tool string, args json.RawMessage) string
+
+// resolveTarget applies a custom extractor when configured, otherwise the
+// default. The final cleanTarget keeps every line short and printable.
+func resolveTarget(tool string, args json.RawMessage, extractor TargetExtractor) string {
+	if extractor != nil {
+		return cleanTarget(extractor(tool, args))
+	}
+	return activityTarget(args)
+}
+
+// activityTarget reads only generic argument keys: name, path, id, target and
+// from/to. Domain-specific keys (git ref/remote, source_url, paths, pattern)
+// belong in a consumer-supplied TargetExtractor. Commands and content-bearing
+// keys are never read.
 func activityTarget(raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return ""
@@ -209,43 +221,69 @@ func activityTarget(raw json.RawMessage) string {
 		s, _ := args[k].(string)
 		return s
 	}
+	value := func(k string) string { return safeTargetValue(str(k)) }
 
 	var target string
 	switch {
-	case str("command") != "":
-		// Command arguments may carry secrets (tokens, passwords) that must
-		// never reach the activity log; keep only argv[0] and the count.
-		target = str("command")
-		if extra, ok := args["args"].([]any); ok && len(extra) > 0 {
-			target += fmt.Sprintf(" (+%d args)", len(extra))
-		}
-	case str("source_url") != "":
-		target = urlHost(str("source_url")) + " → " + str("path")
 	case str("from") != "" || str("to") != "":
-		target = str("from") + " → " + str("to")
-	case str("path") != "":
-		target = str("path")
-	case str("name") != "":
-		target = str("name")
-	case str("ref") != "":
-		target = str("ref")
-	case str("remote") != "":
-		target = str("remote")
-	case args["paths"] != nil:
-		if ps, ok := args["paths"].([]any); ok && len(ps) > 0 {
-			first, _ := ps[0].(string)
-			target = first
-			if len(ps) > 1 {
-				target += fmt.Sprintf(" (+%d)", len(ps)-1)
-			}
+		from, to := hostOrSafeValue(str("from")), hostOrSafeValue(str("to"))
+		switch {
+		case from != "" && to != "":
+			target = from + " → " + to
+		case from != "":
+			target = from
+		default:
+			target = to
 		}
-	case str("pattern") != "":
-		target = fmt.Sprintf("%q", str("pattern"))
+	case value("name") != "":
+		target = value("name")
+	case value("path") != "":
+		target = value("path")
+	case value("id") != "":
+		target = value("id")
+	case value("target") != "":
+		target = value("target")
 	}
 	return cleanTarget(target)
 }
 
-// urlHost returns only the host of raw, or "?" when it does not parse.
+// hostOrSafeValue reduces a URL to its hostname, or sanitizes a plain value
+// such as a local path. It never returns userinfo or query strings.
+func hostOrSafeValue(raw string) string {
+	if strings.Contains(raw, "://") {
+		return urlHost(raw)
+	}
+	return safeTargetValue(raw)
+}
+
+// safeTargetValue sanitizes a non-URL string argument for logging. It keeps a
+// single, query-free token and drops full URLs, credential-style userinfo
+// (user:pass@host) and multi-word shell text. A plain scoped name such as
+// "@scope/pkg" is kept: the "@" alone is not a secret. It returns "" when
+// nothing safe remains.
+func safeTargetValue(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	if i := strings.IndexAny(s, "?#"); i >= 0 {
+		s = s[:i]
+	}
+	if i := strings.IndexAny(s, " \t\r\n"); i >= 0 {
+		s = s[:i]
+	}
+	if s == "" || strings.Contains(s, "://") {
+		return ""
+	}
+	if i := strings.Index(s, "@"); i >= 0 && strings.Contains(s[:i], ":") {
+		// user:pass@host style userinfo; never log it.
+		return ""
+	}
+	return cleanTarget(s)
+}
+
+// urlHost returns only the hostname of raw (no userinfo, port, path, query
+// or fragment), or "?" when it does not parse as a URL with a host.
 func urlHost(raw string) string {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || u.Hostname() == "" {
@@ -284,15 +322,22 @@ func shortDur(d time.Duration) string {
 }
 
 // CountTools reports how many tools s exposes, by listing them over an
-// in-memory session. The TUI shows this number while the server runs.
+// in-memory session. The TUI shows this number while the server runs. When
+// ctx has no deadline, a five-second bound prevents a stuck session from
+// blocking the caller indefinitely.
 func CountTools(ctx context.Context, s *mcp.Server) (int, error) {
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+	}
 	serverT, clientT := mcp.NewInMemoryTransports()
 	ss, err := s.Connect(ctx, serverT, nil)
 	if err != nil {
 		return 0, err
 	}
 	defer ss.Close()
-	client := mcp.NewClient(&mcp.Implementation{Name: "ngodingmcp-count", Version: "1"}, nil)
+	client := mcp.NewClient(&mcp.Implementation{Name: defaultName, Version: "1"}, nil)
 	cs, err := client.Connect(ctx, clientT, nil)
 	if err != nil {
 		return 0, err

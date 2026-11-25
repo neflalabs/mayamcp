@@ -7,9 +7,3 @@ type Host interface {
 	Name() string
 	Version() string
 }
-
-// metaKeys mirrors the naming rule used by the upstream server so a future
-// run_command tool can be added without breaking the activity log format.
-func metaKeys(namespace string) (exitCode, timedOut string) {
-	return namespace + "/exitCode", namespace + "/timedOut"
-}

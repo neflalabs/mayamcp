@@ -15,9 +15,23 @@ import (
 type Config struct {
 	Name    string
 	Version string
-	Logger  *slog.Logger
-	// LogWriter, when set, receives structured logs instead of stderr.
+	// Title is the human-readable server title. Empty uses the mcpserver default.
+	Title string
+	// Instructions replaces the default usage hint sent to clients on initialize.
+	Instructions string
+	// TargetExtractor supplies domain-specific activity-log targets. Empty uses
+	// the generic extractor in mcpserver.
+	TargetExtractor mcpserver.TargetExtractor
+	// Logger is used as-is when LogWriter is nil. LogLevel and LogJSON only
+	// affect loggers built by NewCore.
+	Logger *slog.Logger
+	// LogWriter, when set, receives structured logs instead of stderr and
+	// overrides Logger. When neither is set, logs go to stderr.
 	LogWriter io.Writer
+	// LogLevel overrides the default info level for loggers built here.
+	LogLevel slog.Leveler
+	// LogJSON switches loggers built here from text to JSON handler.
+	LogJSON bool
 }
 
 // Core is the reusable runtime; a front end can serve Core.Server over stdio
@@ -39,24 +53,40 @@ func (h staticHost) Version() string { return h.version }
 // NewCore prepares the MCP server and its domain host without starting a
 // listener or wiring any front end.
 func NewCore(cfg Config) *Core {
+	level := slog.Leveler(slog.LevelInfo)
+	if cfg.LogLevel != nil {
+		level = cfg.LogLevel
+	}
+	handlerOptions := &slog.HandlerOptions{Level: level}
+	newHandler := func(w io.Writer) slog.Handler {
+		if cfg.LogJSON {
+			return slog.NewJSONHandler(w, handlerOptions)
+		}
+		return slog.NewTextHandler(w, handlerOptions)
+	}
 	logger := cfg.Logger
 	if cfg.LogWriter != nil {
-		logger = slog.New(slog.NewTextHandler(cfg.LogWriter, &slog.HandlerOptions{Level: slog.LevelInfo}))
+		logger = slog.New(newHandler(cfg.LogWriter))
 	} else if logger == nil {
-		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+		logger = slog.New(newHandler(os.Stderr))
 	}
 	name := cfg.Name
 	if name == "" {
-		name = "mayamcp"
+		name = mcpserver.DefaultName
 	}
 	version := cfg.Version
 	if version == "" {
-		version = "dev"
+		version = mcpserver.DefaultVersion
 	}
 	host := staticHost{name: name, version: version}
-	server := mcpserver.New(host, version, mcpserver.Options{
-		Name:   name,
-		Logger: logger,
-	})
+	opts := mcpserver.Options{
+		Name:            name,
+		Title:           cfg.Title,
+		Instructions:    cfg.Instructions,
+		Version:         version,
+		TargetExtractor: cfg.TargetExtractor,
+		Logger:          logger,
+	}
+	server := mcpserver.New(host, version, opts)
 	return &Core{Server: server, Host: host, Logger: logger}
 }

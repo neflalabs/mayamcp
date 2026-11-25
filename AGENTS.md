@@ -11,12 +11,20 @@ Panduan singkat untuk AI yang bekerja di repo template ini.
 ## Konvensi
 
 - Utamakan Go stdlib; dependency baru harus bisa dibenarkan.
-- Opsi identitas (`Name`, `Title`, `Instructions`, `MetaNamespace`) harus punya
-  default; jangan hardcode identitas konsumen di dalam inti.
+- Opsi identitas (`Name`, `Title`, `Instructions`, `Version`) harus punya default;
+  jangan hardcode identitas konsumen di dalam inti.
 - Kontrak tool dikunci golden test. Perubahan kontrak: perbarui
   `testdata/tools.golden.json` dengan
   `go test ./internal/mcpserver -run TestToolContract -args -update`, lalu review diff.
 - Jangan menaikkan budget `tools/list` tanpa keputusan sadar.
+- Tool dengan hasil teks besar memakai `addTextTool`; `outputSchema` lewat
+  `mcp.AddTool` hanya untuk record kecil yang memang dibutuhkan client.
+  Pola ini diwariskan dari `ngodingmcp` (lihat `docs/mcp-as-template.md`).
+- Perubahan perilaku pengguna harus disertai update `README.md` / `docs/`.
+- `TaskDev/README.md` berisi nama proyek `MayaMCP`. CLI taskdev punya fallback
+  hardcoded `Nefla POS`, jadi setiap selesai `taskdev-cli sync` (terutama setelah
+  regenerate dari nol) wajib cek baris `proyek **MayaMCP**` dan koreksi manual
+  bila berubah. Jangan anggap CLI mendeteksi nama dari repo.
 
 ## Perintah
 

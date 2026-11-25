@@ -16,14 +16,15 @@ type describeServerOut struct {
 	Version string `json:"version"`
 }
 
-// addDescribeServer shows how a domain tool reads from the Host contract.
-func addDescribeServer(s *mcp.Server, host Host) {
+// addDescribeServer reports the identity resolved by New, so its answer always
+// matches initialize.serverInfo.
+func addDescribeServer(s *mcp.Server, name, version string) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "describe_server",
 		Description: "Return the server name and version from the domain layer.",
 		Annotations: readOnly(),
 	}, func(_ context.Context, _ *mcp.CallToolRequest, _ describeServerArgs) (*mcp.CallToolResult, describeServerOut, error) {
-		out := describeServerOut{Name: host.Name(), Version: host.Version()}
+		out := describeServerOut{Name: name, Version: version}
 		return textResult(fmt.Sprintf("%s %s", out.Name, out.Version)), out, nil
 	})
 }
