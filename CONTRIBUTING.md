@@ -9,7 +9,7 @@ change backed by a test.
    core vs application boundary).
 2. Read [`docs/README.md`](docs/README.md) for the documentation map.
 3. Install Go 1.26+ and run `make check`. The baseline must be green before you
-   add anything (Stop-the-Line).
+   add anything — fix failures before adding features.
 
 ## Workflow
 
@@ -21,7 +21,7 @@ make consumer-test   # external import path must keep working
 
 If `make check` fails, fix the root cause before adding features.
 
-## Prove-It pattern
+## Failing-test-first
 
 For bugfixes and contract changes:
 
@@ -83,7 +83,7 @@ function to `api`, write godoc that states its defaults and when to use it.
 ## Pull request checklist
 
 - [ ] `make check` and `make consumer-test` pass.
-- [ ] Prove-It was used for bugfixes/contract changes.
+- [ ] A failing reproduction was written first for bugfixes/contract changes.
 - [ ] Golden and budget unchanged, or updated in the same commit.
 - [ ] `README.md`/`docs/` updated for user-facing changes.
 - [ ] No secrets, host paths, or downstream identity in the core or logs.

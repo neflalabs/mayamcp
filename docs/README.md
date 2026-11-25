@@ -4,6 +4,7 @@ Start with the row that matches what you are trying to do.
 
 | Document | For | Contents |
 |---|---|---|
+| [`GLOSSARY.md`](GLOSSARY.md) | "What does this term mean?" | Every project-specific and protocol term, defined once |
 | [`quickstart.md`](quickstart.md) | "I want a server running now" | `go get`, three consumption paths, stdio/HTTP examples, troubleshooting |
 | [`api-guide.md`](api-guide.md) | "I want to use this as a library" | Export map, `New` vs `NewWithOptions` vs `NewCore`, hooks, identity, `TargetExtractor` |
 | [`creating-tools.md`](creating-tools.md) | "I want to add one tool" | Input schema, domain vs protocol errors, registration helpers, golden contract |
@@ -41,4 +42,4 @@ All guides are in English. A short explanation of the project name lives in
   compact payload) with a 2048-byte budget. Never raise the budget casually.
 - `ActivityPrefix = "tool: "` is a consumer contract used by log readers and
   terminal UIs.
-- Bugfixes use the Prove-It pattern: failing reproduction first, fix second.
+- Bugfixes start with a failing reproduction test, then the fix.

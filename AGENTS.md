@@ -25,6 +25,8 @@ Short guidance for AI agents and contributors working in this template repo.
   only for small records clients truly need. This pattern is inherited from
   the upstream application.
 - User-facing behaviour changes must update `README.md` / `docs/`.
+- Use the wording in [`docs/GLOSSARY.md`](docs/GLOSSARY.md); do not introduce
+  new internal labels in public docs.
 - Core code stays free of transport, auth, UI, and domain specifics. Keep the
   boundary between the reusable core and the consuming application clear.
 

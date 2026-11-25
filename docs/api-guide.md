@@ -58,7 +58,7 @@ The resolved values are used **identically** for `initialize.serverInfo` and
 the `describe_server` tool. `Host` is never wrapped, so extra domain methods
 remain available.
 
-## C-lite hooks
+## Lifecycle hooks
 
 Field | Behaviour
 ---|---

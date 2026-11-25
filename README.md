@@ -5,6 +5,9 @@ A transport-agnostic Go starter template **and** importable library for building
 (`internal/mcpserver`) knows nothing about HTTP, stdio, authentication, UI, or
 the operating system — the front end chooses a transport at startup.
 
+**New here?** Start with the [glossary](docs/GLOSSARY.md); it defines every
+project-specific term used in these docs.
+
 ```sh
 go get github.com/neflalabs/mayamcp@v0.1.0
 ```
@@ -100,7 +103,7 @@ func main() {
 A non-nil `Register` replaces the starter tools (`ping`, `describe_server`).
 Leave it out to keep them. More examples live in `api/example_test.go`.
 
-### 2. Use the C-lite core
+### 2. Use the framework core (`NewCore`)
 
 ```go
 core := api.NewCore(api.Config{
@@ -184,7 +187,7 @@ The `tools/list` contract is locked by
 go test ./internal/mcpserver -run TestToolContract -args -update
 ```
 
-Bugfixes follow the Prove-It pattern: write the failing reproduction first.
+Bugfixes start with a failing reproduction test, then the fix.
 Coverage stays at or above the 87.4% baseline (currently ~96%; the CLI entry
 point and transport tests are fully covered except the trivial `os.Exit` wiring
 in `main`).

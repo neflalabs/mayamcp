@@ -65,7 +65,7 @@ A non-nil `Register` replaces `ping`/`describe_server`. Pass plain
 `api.Options{}` to keep the starter tools. More examples live in
 `api/example_test.go`.
 
-## Path 2 — C-lite lifecycle with `NewCore`
+## Path 2 — Framework lifecycle with `NewCore`
 
 Use this when identity, resources, and middleware should be assembled once:
 

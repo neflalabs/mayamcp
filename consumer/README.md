@@ -33,7 +33,7 @@ CI runs the same target.
 - an argument containing `Bearer secret-token` does **not** leak into logs.
 
 If this test fails, the public import path is broken — fix it before adding
-features (Stop-the-Line).
+features.
 
 ## During `make rename`
 
