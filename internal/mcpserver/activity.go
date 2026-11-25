@@ -80,6 +80,54 @@ func ActivityMiddleware(logger *slog.Logger, extractor TargetExtractor) mcp.Midd
 	return activityMiddleware(logger, extractor)
 }
 
+// ActivitySize is the measured size of a tool result, exported so a consumer
+// with its own activity middleware can share the exact byte/token accounting
+// used by the core.
+type ActivitySize struct {
+	ContentBytes     int64
+	ContentTokens    int64
+	StructuredBytes  int64
+	StructuredTokens int64
+}
+
+// MeasureActivity computes exact byte counts and bytes/4 token estimates for
+// res. It reports false for non-tool results.
+func MeasureActivity(res mcp.Result) (ActivitySize, bool) {
+	s, ok := measureResult(res)
+	if !ok {
+		return ActivitySize{}, false
+	}
+	return ActivitySize{
+		ContentBytes:     s.contentBytes,
+		ContentTokens:    s.contentTokens,
+		StructuredBytes:  s.structuredBytes,
+		StructuredTokens: s.structuredTokens,
+	}, true
+}
+
+// Suffix renders the compact token annotation. verbose adds the per-payload
+// breakdown used by consumers whose log format includes both counts.
+func (s ActivitySize) Suffix(verbose bool) string {
+	if !verbose {
+		return resultSizeSuffix(resultSize{
+			contentBytes: s.ContentBytes, contentTokens: s.ContentTokens,
+			structuredBytes: s.StructuredBytes, structuredTokens: s.StructuredTokens,
+		})
+	}
+	total := s.ContentTokens + s.StructuredTokens
+	if total <= 0 {
+		return ""
+	}
+	return fmt.Sprintf(" ~%s tok (ct %s + st %s)", humanCount(total),
+		humanCount(s.ContentTokens), humanCount(s.StructuredTokens))
+}
+
+// SanitizeTarget applies the core's target sanitizer. A consumer supplying its
+// own extractor should pass results through it before logging.
+func SanitizeTarget(s string) string {
+	return cleanTarget(s)
+}
+
 // ActivityLine formats one activity entry: tool, target, ✓/✗, optional detail
 // and duration. Empty parts are left out.
 func ActivityLine(tool, target string, ok bool, detail string, d time.Duration) string {

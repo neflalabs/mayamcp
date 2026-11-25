@@ -22,11 +22,11 @@ const (
 	defaultTitle = "MayaMCP"
 )
 
-const defaultInstructions = `You are connected to %s, a small MCP starter server.
+const defaultInstructions = `You are connected to %s, an MCP server.
 
-Use the available tools to answer requests. When adapting this template, replace
-the starter tools with your domain and provide explicit Instructions describing
-them; the transport and server wiring do not need to change.`
+Use the available tools to answer requests. When adapting this template, provide
+explicit Instructions describing the registered tools; the transport and server
+wiring do not need to change.`
 
 // Options configures identity and optional activity logging. Defaults keep
 // the template usable out of the box; a consumer can override any of them

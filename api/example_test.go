@@ -16,7 +16,7 @@ func ExampleNew_customTool() {
 		Label string `json:"label" jsonschema:"Text to echo"`
 	}
 
-	srv := api.New(testHost{"example-server", "v1"}, "v1", api.Options{})
+	srv := api.NewWithOptions(testHost{"example-server", "v1"}, api.Options{})
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "echo",
 		Description: "Echo a short label.",

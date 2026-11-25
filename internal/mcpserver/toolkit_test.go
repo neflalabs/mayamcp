@@ -124,6 +124,28 @@ func TestActivityMiddlewareDirect(t *testing.T) {
 	}
 }
 
+func TestActivitySizeAndSanitizeTarget(t *testing.T) {
+	res := &mcp.CallToolResult{
+		Content:           []mcp.Content{&mcp.TextContent{Text: "0123456789"}},
+		StructuredContent: map[string]any{"ok": true},
+	}
+	size, ok := MeasureActivity(res)
+	if !ok || size.ContentBytes <= 0 || size.StructuredBytes <= 0 {
+		t.Fatalf("MeasureActivity = %+v, %v", size, ok)
+	}
+	compact := size.Suffix(false)
+	verbose := size.Suffix(true)
+	if !strings.Contains(compact, "tok") || !strings.Contains(verbose, "ct ") || !strings.Contains(verbose, "st ") {
+		t.Errorf("suffixes = %q / %q", compact, verbose)
+	}
+	if _, ok := MeasureActivity(&mcp.ListToolsResult{}); ok {
+		t.Error("non-tool result was measured")
+	}
+	if got := SanitizeTarget("  a\n\tb  "); got != "a b" {
+		t.Errorf("SanitizeTarget = %q", got)
+	}
+}
+
 func TestNewHookBranchesDirect(t *testing.T) {
 	var buf bytes.Buffer
 	logger := NewLogger(LogOptions{Writer: &buf})

@@ -7,7 +7,7 @@ CURRENT_MODULE := $(shell sed -n 's/^module //p' go.mod)
 TASKDEV_CLI ?= $(HOME)/.config/opencode/skills/taskdev/scripts/taskdev_cli.py
 RENAME_DOCS := $(shell find . -type f \( -name '*.go' -o -name '*.md' \) -not -path './.git/*' -not -path './TaskDev/*')
 
-.PHONY: build release test check cover consumer-test clean rename taskdev-validate taskdev-sync
+.PHONY: build release test check cover consumer-test parity-check clean rename taskdev-validate taskdev-sync
 
 build:
 	go build -ldflags "-X main.defaultVersion=$(VERSION)" -o $(BINARY) ./cmd/mayamcp
@@ -44,6 +44,10 @@ check:
 consumer-test:
 	cd consumer && GOWORK=off go test -count=1 ./...
 
+# Byte-identical tool contract and build parity with ngodingmcp, when present.
+parity-check:
+	@sh scripts/parity-check.sh
+
 clean:
 	rm -f $(BINARY) coverage.out
 
@@ -54,10 +58,13 @@ rename:
 	@test "$(MODULE)" != "$(CURRENT_MODULE)" || (echo "module path unchanged: $(MODULE)" && exit 1)
 	go mod edit -module "$(MODULE)"
 	@for f in $(RENAME_DOCS); do \
-		sed -i 's|mayamcp/api|$(MODULE)/api|g; s|mayamcp/internal|$(MODULE)/internal|g; s|"mayamcp"|"$(NAME)"|g; s|\./cmd/mayamcp|./cmd/$(NAME)|g; s|\./mayamcp|./$(NAME)|g' "$$f"; \
+		sed -i 's|$(CURRENT_MODULE)/api|$(MODULE)/api|g; s|$(CURRENT_MODULE)/internal|$(MODULE)/internal|g; s|mayamcp/api|$(MODULE)/api|g; s|mayamcp/internal|$(MODULE)/internal|g; s|"mayamcp"|"$(NAME)"|g; s|\./cmd/mayamcp|./cmd/$(NAME)|g; s|\./mayamcp|./$(NAME)|g' "$$f"; \
 	done
 	@sed -i 's|^BINARY := [A-Za-z0-9_-]*|BINARY := $(NAME)|; s|-o $$(BINARY) ./cmd/[A-Za-z0-9_-]*|-o $$(BINARY) ./cmd/$(NAME)|' Makefile
 	@sed -i 's|./cmd/mayamcp|./cmd/$(NAME)|g' .github/workflows/ci.yml
+	@cd consumer && go mod edit \
+		-droprequire=$(CURRENT_MODULE) -dropreplace=$(CURRENT_MODULE) \
+		-require=$(MODULE)@v0.0.0 -replace=$(MODULE)=../
 	@sed -i 's|^/mayamcp|/$(NAME)|' .gitignore
 	@if [ -d cmd/mayamcp ] && [ "$(NAME)" != "mayamcp" ]; then mv cmd/mayamcp cmd/$(NAME); fi
 	@echo "renamed to $(MODULE) (binary $(NAME)); run make check and review the diff"

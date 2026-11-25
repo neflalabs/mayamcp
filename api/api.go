@@ -79,6 +79,20 @@ func ActivityMiddleware(logger *slog.Logger, extract TargetExtractor) mcp.Middle
 	return mcpserver.ActivityMiddleware(logger, extract)
 }
 
+// ActivitySize is the measured byte/token size of a tool result.
+type ActivitySize = mcpserver.ActivitySize
+
+// MeasureActivity reports the exact byte counts and bytes/4 token estimates
+// for a tool result. It is shared with consumers that own their middleware.
+func MeasureActivity(res mcp.Result) (ActivitySize, bool) {
+	return mcpserver.MeasureActivity(res)
+}
+
+// SanitizeTarget applies the core's printable, bounded target sanitizer.
+func SanitizeTarget(s string) string {
+	return mcpserver.SanitizeTarget(s)
+}
+
 // AddTextTool registers a tool with content only: no outputSchema and no
 // structuredContent. Use it for text-heavy results such as files or logs.
 func AddTextTool[In, Out any](s *mcp.Server, t *mcp.Tool, h Handler[In, Out]) {
