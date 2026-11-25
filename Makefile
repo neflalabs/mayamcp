@@ -7,10 +7,21 @@ CURRENT_MODULE := $(shell sed -n 's/^module //p' go.mod)
 TASKDEV_CLI ?= $(HOME)/.config/opencode/skills/taskdev/scripts/taskdev_cli.py
 RENAME_DOCS := $(shell find . -type f \( -name '*.go' -o -name '*.md' \) -not -path './.git/*' -not -path './TaskDev/*')
 
-.PHONY: build test check cover consumer-test clean rename taskdev-validate taskdev-sync
+.PHONY: build release test check cover consumer-test clean rename taskdev-validate taskdev-sync
 
 build:
 	go build -ldflags "-X main.defaultVersion=$(VERSION)" -o $(BINARY) ./cmd/mayamcp
+
+release:
+	@mkdir -p dist
+	@for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do \
+		goos=$${target%/*}; goarch=$${target#*/}; \
+		ext=""; [ "$$goos" = "windows" ] && ext=".exe"; \
+		CGO_ENABLED=0 GOOS=$$goos GOARCH=$$goarch \
+			go build -ldflags "-X main.defaultVersion=$(VERSION)" \
+			-o dist/$(BINARY)-$$goos-$$goarch$$ext ./cmd/mayamcp; \
+	done
+	@ls -lh dist
 
 test:
 	go test -count=1 ./...
