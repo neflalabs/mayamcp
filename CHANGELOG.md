@@ -5,6 +5,8 @@ notebook with `taskdev changelog --calver=v2026.11`. TaskDev is private
 (`.gitignore`), so the references below are local paths, not public links.
 Binary artifacts and GitHub Release notes are at
 <https://github.com/neflalabs/mayamcp/releases> (tags `v2026.11.7`, `v2026.11.8`).
+Go module versions use separate semver tags (`v0.1.0` = the `v2026.11.8`
+baseline), because Go reads `v2026` as a major-version suffix.
 
 <!-- TASKDEV:CHANGELOG:START -->
 

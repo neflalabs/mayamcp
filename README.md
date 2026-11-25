@@ -202,8 +202,10 @@ removals or signature changes require one plus a migration note in
 prefix never change through a routine `api` change.
 
 Release tags (`v20*`) drive `.github/workflows/release.yml` and binary
-artifacts. Because Go interprets `v2026` as a major-version suffix, module
-consumers should pin a commit or track `@main` rather than using the CalVer tag.
+artifacts. Module versions use independent semver tags: `v0.1.0` currently
+points at the same commit as the `v2026.11.8` release baseline. Because Go
+interprets `v2026` as a major-version suffix, module consumers should pin
+`@v0.1.0` (once pushed) or track `@main` / a commit hash — never the CalVer tag.
 
 ## Documentation
 
@@ -215,7 +217,8 @@ Start with [`docs/README.md`](docs/README.md). The most useful next reads are
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`AGENTS.md`](AGENTS.md) for
-conventions, quality gates, and the golden-test workflow.
+conventions, quality gates, and the golden-test workflow. To report a
+vulnerability privately, see [`SECURITY.md`](SECURITY.md).
 
 ## License
 

@@ -22,6 +22,34 @@ make parity-check    # ngodingmcp golden unchanged (needs the sibling repo)
 
 If `make check` fails, fix the root cause before adding features.
 
+### Updating the parity baseline
+
+`make parity-check` compares the `ngodingmcp` tool golden against the hash in
+`testdata/parity/ngodingmcp.golden.sha256`. CI checks out the public
+`ngodingmcp` repository, so an intentional tool change there will fail
+mayamcp's CI until the baseline is updated. Procedure:
+
+1. Regenerate the golden in `ngodingmcp` with its `-args -update` contract
+   test and review the diff there.
+2. Compute `sha256sum ngodingmcp/internal/mcpserver/testdata/tools.golden.json`.
+3. Replace the single line in `testdata/parity/ngodingmcp.golden.sha256` in
+   **the same commit** as the related mayamcp change.
+4. Run `make parity-check` locally before pushing.
+
+Do not update the hash merely to silence a failure you did not investigate.
+
+### Fuzzing and benchmarks
+
+```sh
+go test ./internal/mcpserver -run Fuzz          # seed corpus
+go test ./internal/mcpserver -fuzz FuzzActivityTarget -fuzztime=30s
+go test ./internal/mcpserver -run '^$' -bench . -benchmem
+```
+
+The fuzz targets assert that sanitized targets stay bounded and free of
+control characters. Benchmarks cover `MeasureActivity` and `activityTarget`;
+use them before changing the hot path in the activity middleware.
+
 ## Prove-It pattern
 
 For bugfixes and contract changes:

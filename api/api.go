@@ -51,6 +51,10 @@ func NewCore(cfg Config) *Core {
 
 // New builds an MCP server for host. The caller decides how to serve the
 // returned server (stdio, Streamable HTTP, in-memory, ...).
+//
+// New is the original entry point and takes an explicit version argument.
+// Prefer NewWithOptions when the version can come from Options.Version or
+// Host.Version(), so it is not written twice.
 func New(host Host, version string, opts Options) *mcp.Server {
 	return mcpserver.New(host, version, opts)
 }
