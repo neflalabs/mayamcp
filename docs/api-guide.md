@@ -1,78 +1,77 @@
-# Panduan Paket `api`
+# Package `api` Guide
 
-Paket `github.com/neflalabs/mayamcp/api` adalah **satu-satunya kontrak publik**.
-Isinya alias tipe dan delegasi; semua logika ada di `internal/app` dan
-`internal/mcpserver` (yang tidak bisa diimpor lintas modul karena aturan `internal`
-Go).
+`github.com/neflalabs/mayamcp/api` is the **only public contract**. It contains
+type aliases and delegations; all logic lives in `internal/app` and
+`internal/mcpserver`, which other modules cannot import because of Go's
+`internal` rule.
 
-## Memilih entry point
+## Choosing an entry point
 
-| Kebutuhan | Pakai | Starter tool |
+| Need | Use | Starter tools |
 |---|---|---|
-| Sudah punya `mcp.Server`, tinggal pakai helper | `ResolveIdentity`, `NewLogger`, `ActivityMiddleware`, `AddTextTool`, `AddUntypedTool` | Tidak ada (server Anda sendiri) |
-| Ingin server siap pakai dengan tool sendiri | `NewWithOptions(host, opts)` | Ada bila `Register == nil`, hilang bila non-nil |
-| Ingin lifecycle lengkap: hook, resource, middleware | `NewCore(cfg)` | Sama seperti `NewWithOptions` |
-| Kompatibilitas lama, versi diberikan eksplisit | `New(host, version, opts)` | Sama seperti `NewWithOptions` |
+| You already have an `mcp.Server` and just need helpers | `ResolveIdentity`, `NewLogger`, `ActivityMiddleware`, `AddTextTool`, `AddUntypedTool` | None (your own server) |
+| You want a ready server with your own tools | `NewWithOptions(host, opts)` | Present when `Register == nil`, absent when non-nil |
+| You want the full lifecycle: hooks, resources, middleware | `NewCore(cfg)` | Same as `NewWithOptions` |
+| Legacy compatibility, explicit version argument | `New(host, version, opts)` | Same as `NewWithOptions` |
 
-`NewWithOptions` lebih disarankan daripada `New`: versi diambil dari
-`Options.Version`, lalu `host.Version()`, lalu default — tidak perlu ditulis dua
-kali.
+Prefer `NewWithOptions` over `New`: the version comes from `Options.Version`,
+then `host.Version()`, then the default — no need to write it twice.
 
-## Peta export
+## Export map
 
-**Identitas & logger**
+**Identity and logging**
 - `type Identity { Name, Title, Version string }` + `ResolveIdentity(Identity) mcp.Implementation`
 - `type LogOptions { Writer, Logger, Level, JSON }` + `NewLogger(LogOptions) *slog.Logger`
-- `type Host` — kontrak domain minimal: `Name() string`, `Version() string`
+- `type Host` — minimal domain contract: `Name() string`, `Version() string`
 
-**Registrasi tool**
-- `type Handler[In, Out any]` — bentuk handler generik
-- `AddTextTool[In, Out]` — `content` saja, tanpa `outputSchema`/`structuredContent`
-- `AddUntypedTool[In, Out]` — ada `structuredContent`, tanpa `outputSchema`
-- `mcp.AddTool` (dari SDK) — `content` + `outputSchema` untuk record kecil
+**Tool registration**
+- `type Handler[In, Out any]` — generic handler shape
+- `AddTextTool[In, Out]` — `content` only, no `outputSchema`/`structuredContent`
+- `AddUntypedTool[In, Out]` — `structuredContent`, no `outputSchema`
+- `mcp.AddTool` (SDK) — `content` + `outputSchema` for small typed records
 
 **Runtime**
 - `NewCore(Config) *Core` — `Core{ Server, Host, Logger }`
 - `NewWithOptions`, `New`
-- `NewWithOptions` tidak memulai listener; Anda yang memilih transport.
+- Neither starts a listener; you choose the transport.
 
 **Observability**
 - `ActivityMiddleware(logger, extractor) mcp.Middleware`
-- `MeasureActivity(res) (ActivitySize, bool)` dan `ActivitySize.Suffix(verbose)`
+- `MeasureActivity(res) (ActivitySize, bool)` and `ActivitySize.Suffix(verbose)`
 - `SanitizeTarget(s) string`
 - `const ActivityPrefix`, `ActivityLine(tool, target, ok, detail, d)`
 - `CountTools(ctx, s)`
 
-Semua helper punya default: `mayamcp`, `dev`, `MayaMCP`, instruksi generik,
-prefix `tool: `. Lihat [`observability.md`](observability.md) untuk format log.
+Every helper has defaults: `mayamcp`, `dev`, `MayaMCP`, generic instructions,
+prefix `tool: `. See [`observability.md`](observability.md) for the log format.
 
-## Resolusi identitas
+## Identity resolution
 
-Komponen | Prioritas (tertinggi → terendah)
+Field | Priority (highest → lowest)
 ---|---
-Nama | `Options.Name` → `Host.Name()` → `DefaultName` (`mayamcp`)
-Versi | `Options.Version` → argumen `version` (`New`) → `Host.Version()` → `DefaultVersion` (`dev`)
+Name | `Options.Name` → `Host.Name()` → `DefaultName` (`mayamcp`)
+Version | `Options.Version` → `version` argument (`New`) → `Host.Version()` → `DefaultVersion` (`dev`)
 Title | `Options.Title` → `defaultTitle` (`MayaMCP`)
-Instructions | `Options.Instructions` → template generik
+Instructions | `Options.Instructions` → generic template
 
-Nilai yang sudah di-resolve dipakai **sama** untuk `initialize.serverInfo` dan
-tool `describe_server`. `Host` tidak pernah dibungkus, jadi method domain
-tambahan tetap tersedia.
+The resolved values are used **identically** for `initialize.serverInfo` and
+the `describe_server` tool. `Host` is never wrapped, so extra domain methods
+remain available.
 
-## Hook C-lite
+## C-lite hooks
 
-Field | Perilaku
+Field | Behaviour
 ---|---
-`Register == nil` | `ping` + `describe_server` didaftarkan (contoh `cmd/mayamcp`)
-`Register != nil` | Hanya tool dari konsumen; starter tool **tidak** didaftarkan
-`RegisterResources != nil` | Dipanggil setelah server dibuat untuk `AddResource`
-`Middleware` | Ditambahkan **sebelum** activity middleware (urutan: custom → activity)
-`TargetExtractor == nil` | Ekstraktor generik: `name`, `path`, `id`, `target`, `from`/`to`
-`DisableActivityMiddleware` | Melewati activity middleware bawaan bila Anda memasang sendiri
+`Register == nil` | `ping` + `describe_server` are registered (see `cmd/mayamcp`)
+`Register != nil` | Only consumer tools; starter tools are **not** registered
+`RegisterResources != nil` | Called after server creation to add resources
+`Middleware` | Added **before** the activity middleware (custom → activity)
+`TargetExtractor == nil` | Generic extractor: `name`, `path`, `id`, `target`, `from`/`to`
+`DisableActivityMiddleware` | Skips the built-in activity middleware when you install your own
 
-Contoh hook lengkap ada di [`tool-authoring.md`](tool-authoring.md).
+A complete example is in [`tool-authoring.md`](tool-authoring.md).
 
-## `TargetExtractor` yang aman
+## A safe `TargetExtractor`
 
 ```go
 extractor := func(tool string, args json.RawMessage) string {
@@ -82,35 +81,36 @@ extractor := func(tool string, args json.RawMessage) string {
 	if json.Unmarshal(args, &in) != nil {
 		return ""
 	}
-	// Jangan pernah mengembalikan token, path host, atau isi field.
+	// Never return a token, host path, or field contents.
 	return in.Repo
 }
 
 opts := api.Options{TargetExtractor: extractor}
 ```
 
-Keluaran ekstraktor **selalu** dilewatkan `SanitizeTarget` (karakter kontrol
-dibersihkan, panjang dibatasi 60 rune). Itu tidak membuat extractor boleh
-mengembalikan secret — sanitizer hanya memformat, bukan menyensor.
+Extractor output is always passed through `api.SanitizeTarget` (control
+characters normalized, whitespace collapsed, capped at 60 runes). That is
+**formatting, not redaction**: the extractor itself must still never return a
+secret.
 
-## Mengukur ukuran hasil
+## Measuring result size
 
 ```go
 if size, ok := api.MeasureActivity(res); ok {
-	// Bandwidth/estimasi konteks, tanpa menggandakan payload besar.
 	_ = size.Suffix(false) // " ~10 tok"
 	_ = size.Suffix(true)  // " ~10 tok (ct 6 tok + st 4 tok)"
 }
 ```
 
-Estimasi token = `bytes/4`, bukan hitungan eksak. Suffix compact memakai
-payload terbesar (`content` atau `structuredContent`) agar tidak double count.
+Token estimates are `bytes/4`, not exact tokenizer counts. The compact suffix
+uses the **larger** payload (`content` or `structuredContent`) to avoid double
+counting.
 
-## Kompatibilitas
+## Compatibility
 
-CalVer `vYYYY.MM.MINOR`. Penambahan fungsi/field di `api` boleh tanpa kenaikan
-MINOR; penghapusan atau perubahan tanda tangan hanya pada MINOR dengan catatan
-migrasi di `CHANGELOG.md`. Kontrak `tools/list` dan `ActivityPrefix` tidak
-berubah karena perubahan `api` biasa.
+CalVer is `vYYYY.MM.MINOR`. Additions to `api` are allowed without a MINOR bump;
+removals or signature changes require one plus a migration note in
+`CHANGELOG.md`. The tool contract and `ActivityPrefix` never change through a
+routine `api` change.
 
-Rincian lengkap ada di godoc paket (`go doc github.com/neflalabs/mayamcp/api`).
+See the package godoc for details: `go doc github.com/neflalabs/mayamcp/api`.

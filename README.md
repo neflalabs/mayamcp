@@ -214,3 +214,8 @@ Start with [`docs/README.md`](docs/README.md). The most useful next reads are
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`AGENTS.md`](AGENTS.md) for
 conventions, quality gates, and the golden-test workflow.
+
+## License
+
+[MIT](LICENSE). Use it as a library, fork it, or ship it in a product — keep
+the copyright notice.

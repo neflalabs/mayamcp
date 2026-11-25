@@ -1,16 +1,16 @@
 # Observability: Activity Log
 
-Satu-satunya output observability bawaan MayaMCP adalah **satu baris log per
-`tools/call`**. Formatnya adalah kontrak: TUI `ngodingmcp` mengenali baris
-memakai prefix `tool: `.
+The only built-in observability output in MayaMCP is **one log line per
+`tools/call`**. Its format is a contract: the `ngodingmcp` TUI recognises lines
+by the `tool: ` prefix.
 
 ## Format
 
 ```text
-tool: <tool> [<target>] ✓|✗ [detail] <durasi> [~N tok]
+tool: <tool> [<target>] ✓|✗ [detail] <duration> [~N tok]
 ```
 
-Contoh:
+Examples:
 
 ```text
 tool: ping ✓ 850µs
@@ -19,54 +19,55 @@ tool: failing_tool ✗ error 3.1ms
 tool: edit_file main.go ✓ 12ms ~8.3k tok
 ```
 
-| Bagian | Aturan |
+| Part | Rule |
 |---|---|
-| Prefix | `api.ActivityPrefix` = `"tool: "`, selalu diawali di `msg` |
-| Tool | Nama tool, sudah disanitasi |
-| Target | Opsional, dari allowlist kunci generik atau `TargetExtractor` |
-| Hasil | `✓` sukses, `✗` gagal |
-| Detail | Hanya `error`, `timed out`, atau `exit N` — tidak pernah isi error |
-| Durasi | `µs`, `ms`, `s`, atau `m…s` |
-| Suffix | ` ~N tok` hanya bila estimasi token > 0 |
+| Prefix | `api.ActivityPrefix` = `"tool: "`, always at the start of `msg` |
+| Tool | Tool name, already sanitized |
+| Target | Optional, from the generic key allowlist or a `TargetExtractor` |
+| Outcome | `✓` success, `✗` failure |
+| Detail | Only `error`, `timed out`, or `exit N` — never raw error text |
+| Duration | `µs`, `ms`, `s`, or `m…s` |
+| Suffix | ` ~N tok` only when the token estimate is greater than zero |
 
-Sukses dicatat pada level `INFO`, gagal pada `WARN`.
+Successes are logged at `INFO`, failures at `WARN`.
 
-## Atribut slog
+## slog attributes
 
-Selain `msg`, setiap baris membawa atribut eksak:
+Besides `msg`, each record carries exact attributes:
 
-| Atribut | Arti |
+| Attribute | Meaning |
 |---|---|
-| `content_bytes` | Ukuran `Content` setelah JSON encoding |
+| `content_bytes` | Byte size of `Content` after JSON encoding |
 | `content_tokens` | `content_bytes / 4` |
-| `structured_bytes` | Ukuran `StructuredContent` |
+| `structured_bytes` | Byte size of `StructuredContent` |
 | `structured_tokens` | `structured_bytes / 4` |
 
-Estimasi token adalah `bytes/4`, bukan penghitungan tokenizer. Suffix compact
-memakai payload **terbesar**, karena klien meneruskan salah satu (atau keduanya)
-ke model — menjumlahkan keduanya akan double count. Konsumen yang ingin rincian
-memakai `api.MeasureActivity(res).Suffix(true)` yang menghasilkan
-` ~N tok (ct X + st Y)` (format ini dipakai `ngodingmcp`).
+Token estimates are `bytes/4`, not tokenizer output. The compact suffix uses
+the **larger** payload because a client forwards one or both to the model —
+summing both would double count. Consumers that want the breakdown can call
+`api.MeasureActivity(res).Suffix(true)`, which produces
+` ~N tok (ct X + st Y)` (the format used by `ngodingmcp`).
 
-## Jaminan privasi
+## Privacy guarantees
 
-Yang **tidak pernah** masuk log:
+The following never reach the log:
 
-- nilai `command`, `args`, isi file, teks edit, environment, token, signature;
-- userinfo, port, query, dan fragment URL — hanya hostname yang dipertahankan;
-- pesan error mentah (hanya `error`/`timed out`/`exit N`);
-- kredensial gaya `user:pass@host`.
+- `command`, `args`, file contents, edit text, environment values, tokens,
+  signatures;
+- URL userinfo, port, query, and fragment — only the hostname is retained;
+- raw error messages (only `error`/`timed out`/`exit N`);
+- credential-style `user:pass@host` values.
 
-Target diambil dari allowlist eksplisit: `name`, `path`, `id`, `target`, dan
-`from`/`to`. Nilai `from`/`to` yang bukan URL dibersihkan sebagai path lokal
-(`old.go → new.go`), bukan diubah menjadi `? → ?`.
+Targets come from an explicit allowlist: `name`, `path`, `id`, `target`, and
+`from`/`to`. Non-URL `from`/`to` values are sanitized as local paths
+(`old.go → new.go`) instead of becoming `? → ?`.
 
-`TargetExtractor` konsumen dipanggil lebih dulu, lalu hasilnya selalu lewat
-`api.SanitizeTarget` (karakter kontrol → spasi, whitespace dirapikan, maksimal
-60 rune sebelum ellipsis). Sanitizer **bukan** sensor: extractor tetap tidak
-boleh mengembalikan secret.
+A consumer `TargetExtractor` runs first, and its result is always passed
+through `api.SanitizeTarget` (control characters normalized, whitespace
+collapsed, capped at 60 runes before an ellipsis). The sanitizer **is not a
+redactor**: extractors must still never return secrets.
 
-## Memakai di server milik sendiri
+## Using it on your own server
 
 ```go
 srv := mcp.NewServer(&impl, nil)
@@ -74,30 +75,30 @@ api.AddTextTool(srv, tool, handler)
 srv.AddReceivingMiddleware(api.ActivityMiddleware(logger, extractor))
 ```
 
-Bila memakai `NewCore` dan sudah memiliki middleware domain-aware, set
-`Config.DisableActivityMiddleware = true` lalu pasang sendiri — ini yang
-dilakukan `ngodingmcp` agar exit code `_meta` tetap muncul sebagai `✗ exit N`.
+With `NewCore`, if you already have domain-aware middleware, set
+`Config.DisableActivityMiddleware = true` and install your own. `ngodingmcp`
+does this so that `_meta` exit codes still appear as `✗ exit N`.
 
-## Mengonsumsi baris
+## Consuming the lines
 
 ```go
 if strings.HasPrefix(record.Message, api.ActivityPrefix) {
 	line := strings.TrimPrefix(record.Message, api.ActivityPrefix)
-	// tokenisasi ringan: tool [target] ✓/✗ [detail] durasi [suffix]
+	// tokenize lightly: tool [target] ✓/✗ [detail] duration [suffix]
 }
 ```
 
-Jangan parsing dengan memotong spasi ke-N: `target` dan `detail` bisa kosong.
-Pakai token `✓`/`✗` sebagai penanda status.
+Do not parse by splitting on the Nth space: `target` and `detail` can be empty.
+Use the `✓`/`✗` token as the status marker.
 
-## Test regresi
+## Regression tests
 
-- `internal/mcpserver/activity_test.go` — secret leakage, allowlist, suffix,
-  outcome, dan end-to-end middleware.
-- `api/toolkit_test.go` — wrapper publik `ActivityMiddleware`, `MeasureActivity`,
-  `SanitizeTarget`, dan hook `New`.
-- `ngodingmcp` mempertahankan `_meta` outcome test; golden tool-nya dijaga
+- `internal/mcpserver/activity_test.go` — secret leakage, allowlist, suffixes,
+  outcomes, and end-to-end middleware.
+- `api/toolkit_test.go` — public `ActivityMiddleware` wrapper, `MeasureActivity`,
+  `SanitizeTarget`, and `New` hooks.
+- `ngodingmcp` keeps its `_meta` outcome tests; its golden is guarded by
   `make parity-check`.
 
-Perubahan pada prefix, format baris, atau atribut dianggap perubahan kontrak —
-perbarui golden/test di commit yang sama.
+A change to the prefix, line format, or attributes is a contract change —
+update tests and golden files in the same commit.

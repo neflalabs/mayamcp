@@ -1,12 +1,12 @@
 # Quickstart
 
-Dari kosong sampai server MCP berjalan dalam beberapa menit. Prasyarat: Go 1.26+.
+From zero to a running MCP server in a few minutes. Requires Go 1.26+.
 
-## Jalur 1 — Impor pustaka (disarankan)
+## Path 1 — Import the library (recommended)
 
-Modul kanonik `github.com/neflalabs/mayamcp`. Rilis biner terbaru
-`v2026.11.8`; untuk Go modules pakai `@main` atau hash commit, bukan tag CalVer
-(karena `v2026` terbaca sebagai major version).
+Canonical module: `github.com/neflalabs/mayamcp`. The latest binary release is
+`v2026.11.8`; for Go modules use `@main` or a commit hash, not the CalVer tag
+(because `v2026` is read as a major version).
 
 ```sh
 mkdir my-mcp && cd my-mcp
@@ -15,7 +15,7 @@ go get github.com/neflalabs/mayamcp@main
 go mod tidy
 ```
 
-Server minimal dengan satu tool sendiri (starter tool tidak ikut):
+A minimal server with one tool of your own (starter tools are not included):
 
 ```go
 package main
@@ -59,65 +59,59 @@ func main() {
 }
 ```
 
-`Register` bukan `nil` menggantikan `ping`/`describe_server`. Bila ingin tetap
-memakai starter tool, serahkan `api.Options{}` tanpa `Register`. Detail di
-[`api-guide.md`](api-guide.md).
+A non-nil `Register` replaces `ping`/`describe_server`. Pass plain
+`api.Options{}` to keep the starter tools. More examples live in
+`api/example_test.go`.
 
-Contoh lain yang diverifikasi `go test ./...` ada di `api/example_test.go`.
+## Path 2 — C-lite lifecycle with `NewCore`
 
-## Jalur 2 — Lifecycle C-lite lewat `NewCore`
-
-Gunakan ini bila resource, middleware, dan identitas ingin dirakit sekali:
+Use this when identity, resources, and middleware should be assembled once:
 
 ```go
 core := api.NewCore(api.Config{
 	Name:    "my-server",
 	Version: "v1",
-	Register: func(s *mcp.Server) { /* tool domain */ },
-	RegisterResources: func(s *mcp.Server) {
-		// readNotes: func(context.Context, *mcp.ReadResourceRequest)
-		//   (*mcp.ReadResourceResult, error)
-		s.AddResource(&mcp.Resource{Name: "notes", URI: "memo://notes"}, readNotes)
-	},
-	Middleware: []mcp.Middleware{safeErrorMiddleware, holdWorkspaceMiddleware},
+	Register:          registerDomainTools,
+	RegisterResources: registerResources,
+	Middleware:        []mcp.Middleware{safeErrorMiddleware},
 })
 
-// core.Server siap diserve lewat stdio atau Streamable HTTP.
+// core.Server is ready for stdio, Streamable HTTP, or an in-memory transport.
 ```
 
-`core.Logger` memakai `slog` (text/JSON sesuai `LogJSON`). Activity middleware
-dipasang otomatis; set `DisableActivityMiddleware: true` bila Anda memasang
-middleware sendiri yang sudah memahami data domain.
+`core.Logger` uses `slog` (text or JSON depending on `LogJSON`). The activity
+middleware is installed automatically; set `DisableActivityMiddleware: true`
+when you provide your own domain-aware middleware.
 
-## Jalur 3 — Fork/prototipe
+## Path 3 — Fork a prototype
 
 ```sh
 make rename MODULE=github.com/acme/custom-mcp
 ```
 
-Perintah ini memperbarui `go.mod`, import di `*.go`/`*.md`, binary, direktori
-`cmd/`, CI, `.gitignore`, **dan** `consumer/go.mod`. Perbaikan inti tidak ikut
-otomatis ke fork — untuk konsumsi jangka panjang pilih Jalur 1.
+This updates `go.mod`, imports in `*.go`/`*.md`, the binary name, `cmd/`, CI,
+`.gitignore`, **and** `consumer/go.mod`. Core fixes do not reach a fork
+automatically — choose Path 1 for long-lived consumers.
 
-## Menjalankan template ini langsung
+## Running this template directly
 
 ```sh
 make build
-./mayamcp                                   # stdio (default)
+./mayamcp                                    # stdio (default)
 ./mayamcp -transport=http -addr=127.0.0.1:8080
-./mayamcp -log-level=debug -log-json        # JSON log untuk container/systemd
-./mayamcp -transport=http -addr=:8080       # ⚠️ warning: bind non-loopback tanpa auth/TLS
+./mayamcp -log-level=debug -log-json         # JSON logs for containers/systemd
+./mayamcp -transport=http -addr=:8080        # ⚠️ warns: non-loopback bind without auth/TLS
 ```
 
-`-log-level` menerima `debug`, `info` (default), `warn`/`warning`, `error`.
-Nilai lain keluar dengan kode `2`.
+`-log-level` accepts `debug`, `info` (default), `warn`/`warning`, and `error`.
+Anything else exits with code `2`.
 
-## Pengembangan lintas repo
+## Cross-repo development
 
-`ngodingmcp` memakai mayamcp sebagai source. Siapkan workspace lokal:
+`ngodingmcp` uses mayamcp as its source. Set up a local workspace:
 
 ```go
-// /home/nefla/Devel/mcpserver/go.work (tidak di-commit)
+// /home/nefla/Devel/mcpserver/go.work (not committed)
 go 1.26.10
 
 use (
@@ -126,27 +120,27 @@ use (
 )
 ```
 
-Atau tambahkan `replace github.com/neflalabs/mayamcp => ../mayamcp` ke `go.mod`
-konsumen. `go.work` sengaja di-`.gitignore` karena bersifat lokal.
+Or add `replace github.com/neflalabs/mayamcp => ../mayamcp` to the consumer's
+`go.mod`. `go.work` is gitignored because it is machine-local.
 
-## Verifikasi
+## Verification
 
 ```sh
 make check          # gofmt + vet + staticcheck + go test -race
-make consumer-test  # modul eksternal, hanya import api
-make parity-check   # golden ngodingmcp tidak berubah + dua repo build
+make consumer-test  # external module, imports only api
+make parity-check   # ngodingmcp golden unchanged + both modules build
 ```
 
 ## Troubleshooting
 
-| Gejala | Penyebab / solusi |
+| Symptom | Cause / fix |
 |---|---|
-| `invalid version: module path must match major version (".../v2026")` | Tag CalVer tidak bisa dipakai `go get`; pakai `@main` atau hash commit |
-| `package ... is not in std` / modul tidak ketemu | Lupa `go get` atau `replace`; jalankan `go mod tidy` |
-| `AddTool "x": missing input schema` | Pakai `mcp.AddTool` generik, bukan `s.AddTool` manual; atau `api.AddTextTool` |
-| `tools/list` tiba-tiba membengkak | Tool baru membawa `outputSchema`; pilih `api.AddTextTool`/`api.AddUntypedTool` |
-| `TestToolContract` gagal | Golden perlu diperbarui sengaja: `go test ./internal/mcpserver -run TestToolContract -args -update`, lalu review diff |
-| Tidak ada baris activity | Default level `info`; set `-log-level=debug` atau `LogLevel` di Config, atau Anda menyetel `DisableActivityMiddleware` |
-| Activity log menampilkan `? → ?` | Argumen `from`/`to` bukan URL; helper `hostOrSafeValue` seharusnya memakai nilai lokal — laporkan regresi |
-| `make rename` gagal "module path unchanged" | `MODULE` sama dengan module saat ini; gunakan path lain |
-| Consumer test rusak setelah rename | Jalankan ulang `make rename` versi terbaru; kini `consumer/go.mod` ikut diperbarui |
+| `invalid version: module path must match major version (".../v2026")` | CalVer tags cannot be used with `go get`; use `@main` or a commit hash |
+| `package ... is not in std` / module not found | Missing `go get` or `replace`; run `go mod tidy` |
+| `AddTool "x": missing input schema` | Use generic `mcp.AddTool`, not manual `s.AddTool`; or `api.AddTextTool` |
+| `tools/list` suddenly grows | The new tool carries an `outputSchema`; prefer `api.AddTextTool`/`api.AddUntypedTool` |
+| `TestToolContract` fails | The golden file needs an intentional update: `go test ./internal/mcpserver -run TestToolContract -args -update`, then review the diff |
+| No activity lines | Default level is `info`; set `-log-level=debug` or `LogLevel` in Config, or you enabled `DisableActivityMiddleware` |
+| Activity log shows `? → ?` | `from`/`to` arguments are not URLs; `hostOrSafeValue` should keep local values — report a regression |
+| `make rename` says "module path unchanged" | `MODULE` equals the current path; choose another |
+| Consumer test breaks after rename | Re-run the latest `make rename`; it now updates `consumer/go.mod` |

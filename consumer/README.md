@@ -1,47 +1,47 @@
 # Consumer Acceptance Module
 
-Direktori ini adalah **modul Go terpisah** (`example.com/mayamcp-consumer`) yang
-hanya mengimpor `github.com/neflalabs/mayamcp/api`. Tujuannya membuktikan bahwa
-mayamcp benar-benar bisa dikonsumsi dari luar modul, bukan hanya dari test internal.
+This directory is a **separate Go module** (`example.com/mayamcp-consumer`)
+that imports only `github.com/neflalabs/mayamcp/api`. It proves that MayaMCP is
+genuinely consumable from another module, not just from tests inside the repo.
 
-## Kenapa modul terpisah
+## Why a separate module
 
-Aturan `internal` Go melarang modul lain mengimpor `internal/app` dan
-`internal/mcpserver`. Test di dalam repositori mayamcp tidak bisa membuktikan
-jalur import eksternal. Modul ini memakai `replace ... => ../` sehingga
-kompilasi tetap lokal, tetapi hanya `api` yang terlihat.
+Go's `internal` rule prevents other modules from importing `internal/app` and
+`internal/mcpserver`. Tests inside the mayamcp repository cannot prove the
+external import path. This module uses `replace ... => ../` so the build stays
+local while only `api` is visible.
 
-## Menjalankan
+## Running
 
 ```sh
-make consumer-test      # dari root mayamcp
-# atau:
+make consumer-test      # from the mayamcp root
+# or:
 cd consumer && GOWORK=off go test -count=1 ./...
 ```
 
-`GOWORK=off` dipakai supaya `go.work` di direktori induk tidak mengambil alih
-resolusi modul. CI menjalankan target yang sama.
+`GOWORK=off` prevents the parent `go.work` from taking over module resolution.
+CI runs the same target.
 
-## Yang diverifikasi
+## What it verifies
 
-`acceptance_test.go` membangun server dengan `api.NewWithOptions` dan hook:
+`acceptance_test.go` builds a server with `api.NewWithOptions` and hooks:
 
-- hanya tool konsumen yang terdaftar (tanpa `ping`/`describe_server`);
-- resource kustom via `RegisterResources`;
-- middleware kustom via `Middleware`;
-- activity middleware publik via `api.ActivityMiddleware`;
-- argumen mengandung `Bearer secret-token` **tidak** bocor ke log.
+- only consumer tools are registered (no `ping`/`describe_server`);
+- a custom resource via `RegisterResources`;
+- custom middleware via `Middleware`;
+- the public activity middleware via `api.ActivityMiddleware`;
+- an argument containing `Bearer secret-token` does **not** leak into logs.
 
-Kalau test ini gagal, jalur impor publik sedang rusak — perbaiki sebelum fitur
-baru ditambahkan (Stop-the-Line).
+If this test fails, the public import path is broken — fix it before adding
+features (Stop-the-Line).
 
-## Saat `make rename` dijalankan
+## During `make rename`
 
-`make rename MODULE=...` memperbarui `consumer/go.mod` otomatis:
+`make rename MODULE=...` updates `consumer/go.mod` automatically:
 
-- `require` lama di-drop, `require $MODULE v0.0.0` ditambahkan;
-- `replace $MODULE => ../` diset ulang;
-- import di `acceptance_test.go` ikut terganti.
+- the old `require` is dropped and `require $MODULE v0.0.0` added;
+- `replace $MODULE => ../` is set again;
+- imports in `acceptance_test.go` are rewritten.
 
-Jadi jangan mengedit `consumer/go.mod` manual setelah rename kecuali ada alasan
-khusus.
+Do not edit `consumer/go.mod` manually after a rename unless you have a
+specific reason.

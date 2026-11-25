@@ -1,13 +1,13 @@
-# Membuat Tool di MayaMCP
+# Creating Tools in MayaMCP
 
-Panduan singkat untuk menambah tool ke server yang dibangun dari template ini.
-Contoh yang bisa dijalankan otomatis ada di `api/example_test.go`
+A short guide to adding a tool to a server built from this template. An
+automatically verified example lives in `api/example_test.go`
 (`ExampleNew_customTool`).
 
-## 1. Struktur input
+## 1. Input structure
 
-Definisikan struct dengan tag `json`; tag `jsonschema` berisi deskripsi
-property di `inputSchema`:
+Define a struct with `json` tags; the `jsonschema` tag becomes the property
+description in `inputSchema`:
 
 ```go
 type echoArgs struct {
@@ -15,16 +15,16 @@ type echoArgs struct {
 }
 ```
 
-`mcp.AddTool` meng-infer schema dari tipe `In` (termasuk daftar `required`).
-Hindari `any` untuk input: skemanya menjadi object kosong dan klien tidak tahu
-argumen yang tersedia.
+`mcp.AddTool` infers the schema from the `In` type, including `required`.
+Avoid `any` as an input type: its schema is an empty object and clients will
+not know which arguments are available.
 
-## 2. Error domain vs error protokol
+## 2. Domain errors vs protocol errors
 
-* **Error domain/validasi** → kembalikan `*mcp.CallToolResult` dengan
-  `IsError: true`. Model melihat pesan error dan bisa memperbaiki panggilannya.
-* **Error protokol/transport** → kembalikan `nil, err`. Ini untuk kegagalan
-  sistem yang memang tidak bisa dikoreksi model.
+- **Domain/validation error** → return a `*mcp.CallToolResult` with
+  `IsError: true`. The model sees the message and can correct its call.
+- **Protocol/transport error** → return `nil, err`. Use this for system
+  failures the model cannot fix.
 
 ```go
 return &mcp.CallToolResult{
@@ -33,30 +33,33 @@ return &mcp.CallToolResult{
 }, nil, nil
 ```
 
-Jangan memasukkan path host, token, atau data rahasia ke pesan error.
+Never put host paths, tokens, or secret data in an error message.
 
-## 3. Memilih helper registrasi
+## 3. Choosing a registration helper
 
-| Kebutuhan | Cara |
+| Need | Use |
 |---|---|
-| Hasil berupa teks besar (file, listing, log) | `api.AddTextTool` — hanya `content`, tanpa `outputSchema` |
-| Konfirmasi singkat dengan JSON untuk klien | `api.AddUntypedTool` — ada `structuredContent`, tanpa `outputSchema` |
-| Record kecil yang benar-benar dibutuhkan klien | `mcp.AddTool` dengan tipe `Out` → ada `outputSchema` + `structuredContent` |
+| Large text results (files, listings, logs) | `api.AddTextTool` — `content` only, no `outputSchema` |
+| Short JSON confirmations for programmatic clients | `api.AddUntypedTool` — `structuredContent`, no `outputSchema` |
+| Small records the client really needs | `mcp.AddTool` with a typed `Out` → `outputSchema` + `structuredContent` |
 
-Dari luar modul, pakai `github.com/neflalabs/mayamcp/api`: `api.NewWithOptions(...)`
-mengembalikan `*mcp.Server`. Berikan `Options.Register` untuk mengganti starter
-tool; di dalamnya daftarkan tool dengan `api.AddTextTool` / `api.AddUntypedTool`
-atau `mcp.AddTool` bila `outputSchema` memang dibutuhkan.
+From outside the module, import `github.com/neflalabs/mayamcp/api`:
+`api.NewWithOptions(...)` returns an `*mcp.Server`. Supply `Options.Register`
+to replace the starter tools, then register yours with `api.AddTextTool`,
+`api.AddUntypedTool`, or `mcp.AddTool` when an `outputSchema` is genuinely
+needed.
 
-## 4. Menjaga kontrak bawaan
+## 4. Preserving the built-in contract
 
-Kontrak dikunci oleh `internal/mcpserver/testdata/tools.golden.json` (file
-pretty-printed **884 byte**). `TestToolsListBudget` mengukur `tools/list` compact
-= **601 byte** dari budget 2048; kedua angka ini bukan hal yang sama. Karena itu:
+The contract is locked by
+`internal/mcpserver/testdata/tools.golden.json` (pretty file **884 bytes**).
+`TestToolsListBudget` measures the compact `tools/list` payload at **601 bytes**
+against a 2048-byte budget. These are two different numbers, so:
 
-* contoh dan percobaan **jangan** didaftarkan ke server bawaan;
-* tulis sebagai `Example...` di `*_test.go` atau dokumentasi saja;
-* jika tool baru memang masuk ke template, perbarui golden di commit yang sama:
+- do **not** register examples and experiments on the built-in server;
+- write them as `Example...` functions in `*_test.go` or as documentation;
+- if a tool genuinely belongs in the template, update the golden file in the
+  same commit:
 
 ```sh
 go test ./internal/mcpserver -run TestToolContract -args -update
@@ -64,8 +67,8 @@ go test ./internal/mcpserver -run TestToolContract -args -update
 
 ## 5. Activity log
 
-Target log aktivitas diambil dari kunci generik `name`, `path`, `id`, `target`,
-serta `from`/`to`. Untuk kunci spesifik domain (misal git `ref`/`remote`),
-berikan `TargetExtractor` lewat `api.Options` / `app.Config`. Keluaran
-ekstraktor selalu dipangkas dan dibersihkan oleh middleware, tetapi
-implementasinya tetap tidak boleh mengembalikan secret.
+Targets come from the generic keys `name`, `path`, `id`, `target`, and
+`from`/`to`. For domain-specific keys (for example git `ref`/`remote`), supply
+a `TargetExtractor` through `api.Options` / `app.Config`. Its output is always
+truncated and sanitized by the middleware, but the extractor itself must never
+return a secret. See [`observability.md`](observability.md).

@@ -1,9 +1,9 @@
-# Menulis Tool untuk Server Domain
+# Writing Tools for a Domain Server
 
-Panduan ini melengkapi [`creating-tools.md`](creating-tools.md) dengan contoh
-rakit-server-penuh. Untuk satu tool tambahan, cukup baca dokumen itu.
+This guide extends [`creating-tools.md`](creating-tools.md) with a
+full-server example. For a single extra tool, read that document instead.
 
-## Kerangka lengkap
+## Complete skeleton
 
 ```go
 package main
@@ -33,7 +33,7 @@ type readResult struct {
 
 func readFile(ctx context.Context, req *mcp.CallToolRequest, in readArgs) (*mcp.CallToolResult, readResult, error) {
 	if in.Path == "" {
-		// Domain error: model can correct the call.
+		// Domain error: the model can correct the call.
 		return &mcp.CallToolResult{
 			IsError: true,
 			Content: []mcp.Content{&mcp.TextContent{Text: "path is required"}},
@@ -41,11 +41,11 @@ func readFile(ctx context.Context, req *mcp.CallToolRequest, in readArgs) (*mcp.
 	}
 	body, err := os.ReadFile(in.Path)
 	if err != nil {
-		// Protocol error: infrastructure problem, not a model mistake.
+		// Protocol error: an infrastructure problem the model cannot fix.
 		return nil, readResult{}, err
 	}
 
-	// Tipe kecil yang benar-benar dipakai klien → mcp.AddTool.
+	// Small record the client really uses → mcp.AddTool.
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(body)}}},
 		readResult{Bytes: len(body)}, nil
 }
@@ -60,10 +60,10 @@ func main() {
 			if json.Unmarshal(args, &in) != nil {
 				return ""
 			}
-			return in.Path // jangan pernah kembalikan isi file/token
+			return in.Path // never return file contents or tokens
 		},
 		Register: func(s *mcp.Server) {
-			// Teks besar → AddTextTool (tanpa outputSchema).
+			// Large text → AddTextTool (no outputSchema).
 			api.AddTextTool(s, &mcp.Tool{Name: "dump", Description: "Dump raw text."},
 				func(ctx context.Context, _ *mcp.CallToolRequest, in readArgs) (*mcp.CallToolResult, string, error) {
 					body, err := os.ReadFile(in.Path)
@@ -73,7 +73,7 @@ func main() {
 					return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(body)}}}, "", nil
 				})
 
-			// Record kecil → mcp.AddTool (dengan outputSchema).
+			// Small record → mcp.AddTool (with outputSchema).
 			mcp.AddTool(s, &mcp.Tool{Name: "read", Description: "Read a file."}, readFile)
 		},
 		RegisterResources: func(s *mcp.Server) {
@@ -87,36 +87,36 @@ func main() {
 }
 ```
 
-`readGuide` di atas adalah placeholder — sesuaikan dengan domain
-Anda. Yang penting adalah **pemisahan peran**:
+`readGuide` above is a placeholder — adapt it to your domain. What matters is
+the **separation of roles**:
 
-| Bagian | Milik |
+| Part | Owner |
 |---|---|
-| Tool & `TargetExtractor` | Konsumen/domain |
-| Identitas, logger, activity middleware, hook | MayaMCP core |
-| Transport, auth, UI, config store | Aplikasi |
+| Tools and `TargetExtractor` | Consumer / domain |
+| Identity, logger, activity middleware, hooks | MayaMCP core |
+| Transport, auth, UI, config store | Application |
 
-## Memilih helper
+## Choosing a helper
 
-| Situasi | Helper |
+| Situation | Helper |
 |---|---|
-| Output teks besar (file, log, listing, diff) | `api.AddTextTool` |
-| Konfirmasi pendek tapi dibaca program | `api.AddUntypedTool` |
-| Record kecil yang skemanya dipakai klien | `mcp.AddTool` dengan `Out` typed |
+| Large text output (files, logs, listings, diffs) | `api.AddTextTool` |
+| Short confirmation read by programs | `api.AddUntypedTool` |
+| Small record whose schema clients use | `mcp.AddTool` with typed `Out` |
 
-`outputSchema` dibayar **di setiap session** lewat `tools/list`, jangan
-ditambahkan hanya karena "mungkin berguna".
+An `outputSchema` is paid on **every session** through `tools/list`; do not add
+one just because it "might be useful".
 
-## Error: domain vs protokol
+## Errors: domain vs protocol
 
-- `IsError: true` + `nil error` → model melihat pesan dan bisa memperbaiki
-  panggilan. Pakai untuk validasi input dan keadaan domain.
-- `nil, err` → kegagalan sistem/transport. Model tidak bisa memperbaikinya.
-- Jangan pernah memasukkan path absolut host, token, atau secret ke pesan error.
+- `IsError: true` with a `nil` error → the model sees the message and can fix
+  the call. Use it for input validation and domain states.
+- `nil, err` → system/transport failure. The model cannot fix it.
+- Never include absolute host paths, tokens, or secrets in an error message.
 
-## Menguji tool
+## Testing tools
 
-Pakai transport in-memory agar tidak menyentuh stdio/HTTP:
+Use an in-memory transport so no stdio/HTTP port is touched:
 
 ```go
 serverT, clientT := mcp.NewInMemoryTransports()
@@ -137,26 +137,28 @@ res, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "read", Arguments: m
 // ...
 ```
 
-Contoh nyata: `api/toolkit_test.go` dan `consumer/acceptance_test.go`.
+Real examples: `api/toolkit_test.go` and `consumer/acceptance_test.go`.
 
-## Kontrak bawaan
+## Built-in contract
 
-- Golden `internal/mcpserver/testdata/tools.golden.json` = file pretty **884 byte**.
-- `TestToolsListBudget` mengukur payload compact **601 byte** dari budget 2048.
-- Tool **contoh** tidak boleh didaftarkan ke server bawaan; tulis sebagai
-  `Example...` di `*_test.go` atau dokumentasi.
-- Bila tool baru memang masuk template, regenerasi golden di commit yang sama:
+- Golden `internal/mcpserver/testdata/tools.golden.json` = pretty **884 bytes**.
+- `TestToolsListBudget` measures the compact payload at **601 bytes** against a
+  2048-byte budget.
+- Example tools must **not** be registered on the built-in server; write them
+  as `Example...` functions in `*_test.go` or as documentation.
+- If a new tool genuinely belongs in the template, regenerate the golden in the
+  same commit:
 
 ```sh
 go test ./internal/mcpserver -run TestToolContract -args -update
 ```
 
-## Checklist sebelum selesai
+## Checklist
 
-- [ ] Input memakai struct + tag `json`/`jsonschema`, bukan `any`.
-- [ ] Error domain dan error protokol dibedakan.
-- [ ] Helper dipilih sesuai ukuran payload; `outputSchema` disengaja.
-- [ ] `TargetExtractor` tidak mengembalikan secret; diuji dengan payload jahat.
-- [ ] Test in-memory untuk `ListTools` dan `CallTool`.
-- [ ] `make check` hijau; golden/budget tidak berubah kecuali disengaja.
-- [ ] Perubahan perilaku pengguna diiringi update `README.md`/`docs/`.
+- [ ] Input uses a struct with `json`/`jsonschema` tags, not `any`.
+- [ ] Domain errors and protocol errors are distinguished.
+- [ ] Helper chosen by payload size; `outputSchema` is intentional.
+- [ ] `TargetExtractor` returns no secret; tested with hostile input.
+- [ ] In-memory tests for `ListTools` and `CallTool`.
+- [ ] `make check` passes; golden/budget unchanged unless intended.
+- [ ] User-facing changes are reflected in `README.md`/`docs/`.
