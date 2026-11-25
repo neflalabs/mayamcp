@@ -3,6 +3,8 @@
 Catatan rilis CalVer `vYYYY.MM.MINOR`. Dihasilkan dari notebook TaskDev lokal
 (`taskdev changelog --calver=v2026.11`). Dokumen TaskDev bersifat privat
 (`.gitignore`), jadi rujukan di bawah adalah path lokal, bukan tautan publik.
+Artefak dan catatan GitHub Release ada di
+<https://github.com/neflalabs/mayamcp/releases> (tag `v2026.11.7`, `v2026.11.8`).
 
 <!-- TASKDEV:CHANGELOG:START -->
 

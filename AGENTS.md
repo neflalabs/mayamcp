@@ -36,6 +36,10 @@ Panduan singkat untuk AI yang bekerja di repo template ini.
 make test             # go test -count=1 ./...
 make check            # gofmt, vet, staticcheck, go test -race
 make build            # binary ./mayamcp
+make consumer-test    # modul eksternal yang hanya import api
+make parity-check     # golden ngodingmcp + build dua repo
+make release          # artifact rilis lintas platform
+make rename           # instansiasi template di module path lain
 make taskdev-validate # taskdev_cli.py validate --strict (lokal)
 make taskdev-sync     # regenerate indeks TaskDev + jaga nama MayaMCP
 ```

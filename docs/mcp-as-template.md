@@ -3,6 +3,12 @@
 > **Provenansi:** dokumen ini disalin dari `ngodingmcp/mcp-as-template.md` pada
 > 2026-11-25. Status, hash commit, dan tautan TaskDev di bawah merujuk ke repo
 > `ngodingmcp` (upstream), bukan ke repo template ini.
+>
+> **Status terkini di `mayamcp`:** catatan ini adalah arsip proses ekstraksi.
+> Keputusan yang dulu terbuka sudah ditutup di notebook TaskDev lokal
+> `01_MayaMCP_Architecture_Guideline.md` (§3.6 transport, §3.8 source-of-truth)
+> dan `02_Framework_C_Lite_Readiness.md`. Untuk pemakaian sekarang, baca
+> [`README.md`](../README.md) dan [`docs/README.md`](README.md) — bukan catatan ini.
 
 Nama resmi target untuk fondasi/template MCP server berbasis Go ini adalah **MayaMCP** (dengan pendekatan kerja **keep as is dulu**: rapikan struktur internal `ngodingmcp` secara bertahap tanpa merusak perilaku yang berjalan, baru ekstrak **MayaMCP** setelah struktur beres).
 

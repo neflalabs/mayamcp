@@ -20,10 +20,14 @@ dalamnya merujuk ke upstream.
 - `internal/app` — `NewCore`: membangun server + domain host tanpa listener.
 - `cmd/mayamcp` — pemilih transport: `stdio` (default) atau `http`.
 - `docs/mcp-as-template.md` — catatan upstream tentang ekstraksi template.
-- `docs/creating-tools.md` — panduan membuat tool berparameter.
+- `docs/` — indeks, quickstart, panduan API, observability, dan authoring tool
+  (mulai dari [`docs/README.md`](docs/README.md)).
+- `consumer/` — modul terpisah yang hanya mengimpor `api` untuk acceptance test.
+- `scripts/parity-check.sh` + `testdata/parity/` — gate golden lintas repo.
 - `TaskDev/` — guideline arsitektur dan histori keputusan; **lokal saja**
   (di-`.gitignore`, tidak ikut ter-clone).
-- `.github/workflows/ci.yml` — `make check`, `go mod verify`, build, cross-compile.
+- `.github/workflows/ci.yml` — check, consumer test, parity gate, build, cross-compile.
+- `.github/workflows/release.yml` — rilis CalVer + artifact.
 
 Domain contoh bernama `Host` di `internal/mcpserver/domain.go`. Saat memakai
 template ini, ganti `Host` dan `tools_*.go` dengan domain target; berkas
@@ -44,8 +48,25 @@ Ada dua mode konsumsi:
    tersedia, tetapi perbaikan inti tidak otomatis ikut — pilih impor untuk
    konsumsi jangka panjang.
 
-Module path kanonik sudah ditetapkan, tetapi remote/tag rilis belum dibuat.
-Untuk pemakaian lokal antar-repo, pakai `go.work` atau `replace ... => ../mayamcp`.
+Repo publiknya `github.com/neflalabs/mayamcp`; rilis terbaru `v2026.11.8`
+(artefak dan catatan GitHub Release).
+
+**Catatan Go modules:** tag CalVer `v2026.11.8` dibaca Go sebagai *major version*
+`v2026`, sehingga `go get ...@v2026.11.8` ditolak. Untuk mengimpor pakai
+branch/commit yang menghasilkan pseudo-version:
+
+```sh
+go get github.com/neflalabs/mayamcp@main
+go mod tidy
+```
+
+Untuk versi terpin, pakai hash commit, mis. `@af55bb9`. Tag `v20*` tetap dipakai
+untuk rilis biner, bukan versi modul Go.
+
+Untuk pengembangan lintas repo (mayamcp + ngodingmcp), pakai `go.work` di
+direktori induk atau `replace github.com/neflalabs/mayamcp => ../mayamcp`.
+Panduan lengkap ada di [`docs/quickstart.md`](docs/quickstart.md) dan
+[`docs/api-guide.md`](docs/api-guide.md).
 
 Contoh pemakaian sebagai pustaka:
 
@@ -110,9 +131,12 @@ perubahan `api` biasa.
 ## Test
 
 ```sh
-make test
-make check
+make test            # go test -count=1 ./...
+make check           # gofmt, vet, staticcheck, go test -race
 make consumer-test   # modul konsumen eksternal (hanya import api)
+make parity-check    # golden ngodingmcp + build dua repo (lewati bila tak ada)
+make release VERSION=v2026.11.8   # artifact lintas platform
+make rename MODULE=github.com/acme/custom-mcp   # fork/prototipe
 ```
 
 Kontrak tool dikunci oleh `internal/mcpserver/testdata/tools.golden.json`.

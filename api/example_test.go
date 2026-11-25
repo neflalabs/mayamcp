@@ -60,3 +60,42 @@ func ExampleNew_customTool() {
 	fmt.Println(text.Text)
 	// Output: hello
 }
+
+// ExampleNewCore shows how a consumer assembles identity, hooks and logging
+// without starting a listener.
+func ExampleNewCore() {
+	core := api.NewCore(api.Config{
+		Name:    "example-core",
+		Version: "v1",
+		Register: func(s *mcp.Server) {
+			api.AddTextTool(s, &mcp.Tool{Name: "hello", Description: "Say hello."},
+				func(context.Context, *mcp.CallToolRequest, struct{}) (*mcp.CallToolResult, string, error) {
+					return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "hello"}}}, "", nil
+				})
+		},
+	})
+	fmt.Println(core.Host.Name(), core.Host.Version())
+	// Output: example-core v1
+}
+
+// ExampleAddTextTool shows the registration helper that omits outputSchema
+// for text-heavy results.
+func ExampleAddTextTool() {
+	type args struct {
+		Label string `json:"label" jsonschema:"Label to echo"`
+	}
+	srv := api.NewWithOptions(testHost{"text-server", "v1"}, api.Options{
+		Register: func(s *mcp.Server) {
+			api.AddTextTool(s, &mcp.Tool{Name: "echo", Description: "Echo a label."},
+				func(_ context.Context, _ *mcp.CallToolRequest, in args) (*mcp.CallToolResult, string, error) {
+					return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: in.Label}}}, in.Label, nil
+				})
+		},
+	})
+	n, err := api.CountTools(context.Background(), srv)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(n)
+	// Output: 1
+}
