@@ -108,29 +108,30 @@ make build
 `-log-level` accepts `debug`, `info` (default), `warn`/`warning`, and `error`.
 Anything else exits with code `2`.
 
-## Cross-repo development
+## Developing alongside another module
 
-`ngodingmcp` uses mayamcp as its source. Set up a local workspace:
+When MayaMCP and a consuming application live side by side, create a Go
+workspace file in their shared parent directory (keep it out of version
+control):
 
 ```go
-// /home/nefla/Devel/mcpserver/go.work (not committed)
+// ../go.work (local only)
 go 1.26.10
 
 use (
 	./mayamcp
-	./ngodingmcp
+	./my-application
 )
 ```
 
 Or add `replace github.com/neflalabs/mayamcp => ../mayamcp` to the consumer's
-`go.mod`. `go.work` is gitignored because it is machine-local.
+`go.mod`.
 
 ## Verification
 
 ```sh
 make check          # gofmt + vet + staticcheck + go test -race
 make consumer-test  # external module, imports only api
-make parity-check   # ngodingmcp golden unchanged + both modules build
 ```
 
 ## Troubleshooting

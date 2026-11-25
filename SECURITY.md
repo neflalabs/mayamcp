@@ -9,8 +9,8 @@
 | Older commits / forks | ❌ |
 
 MayaMCP is a template and library; fixes land on `main` first and are then
-backported to `ngodingmcp`. Please upgrade to the latest commit or tag before
-reporting an issue.
+picked up by consuming applications on their next dependency bump. Please
+upgrade to the latest commit or tag before reporting an issue.
 
 ## Reporting a vulnerability
 

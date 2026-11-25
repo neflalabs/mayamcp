@@ -10,13 +10,7 @@ Start with the row that matches what you are trying to do.
 | [`tool-authoring.md`](tool-authoring.md) | "I am building a full domain server" | End-to-end example with hooks, resources, middleware, and tests |
 | [`observability.md`](observability.md) | "I consume or change activity logs" | `tool: ` format, token suffix, slog attributes, privacy guarantees |
 
-The detailed guides above are currently written in Indonesian; the root
-[`README.md`](../README.md), this index, and
-[`CONTRIBUTING.md`](../CONTRIBUTING.md) are in English.
-
-The original extraction notes from `ngodingmcp` are **not** part of the remote
-repository. They are archived locally at `TaskDev/Note/MCP_AS_TEMPLATE.md`.
-A short explanation of the name lives in
+All guides are in English. A short explanation of the project name lives in
 [`README.md`](../README.md#why-mayamcp).
 
 ## Elsewhere in the repository
@@ -26,10 +20,18 @@ A short explanation of the name lives in
 - [`CHANGELOG.md`](../CHANGELOG.md) — release notes (semver releases, CalVer
   date labels).
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md) — contribution workflow and gates.
+- [`SECURITY.md`](../SECURITY.md) — private vulnerability reporting.
 - `consumer/` — a real module that imports only `api`
   ([`consumer/README.md`](../consumer/README.md)).
-- `TaskDev/` — local architecture notebook; gitignored, so links to it do not
-  work in a public clone. Key decisions are summarised in the documents above.
+
+## Terms used in these guides
+
+| Term | Meaning here |
+|---|---|
+| core | Reusable MCP server code in `internal/`; no transport, auth, UI, or domain logic |
+| consuming application | The project that imports MayaMCP and supplies its own domain |
+| tool contract | The locked `tools/list` output (golden file + byte budget) |
+| activity record | One privacy-safe log line per tool call, prefixed `tool: ` |
 
 ## Rules that are easy to miss
 
@@ -37,5 +39,6 @@ A short explanation of the name lives in
   another module.
 - `tools/list` is locked by a golden file (**884 bytes** pretty, **601 bytes**
   compact payload) with a 2048-byte budget. Never raise the budget casually.
-- `ActivityPrefix = "tool: "` is a consumer contract (TUI).
+- `ActivityPrefix = "tool: "` is a consumer contract used by log readers and
+  terminal UIs.
 - Bugfixes use the Prove-It pattern: failing reproduction first, fix second.

@@ -4,10 +4,9 @@ VERSION ?= dev
 MODULE ?= newmodule
 NAME := $(notdir $(MODULE))
 CURRENT_MODULE := $(shell sed -n 's/^module //p' go.mod)
-TASKDEV_CLI ?= $(HOME)/.config/opencode/skills/taskdev/scripts/taskdev_cli.py
 RENAME_DOCS := $(shell find . -type f \( -name '*.go' -o -name '*.md' \) -not -path './.git/*' -not -path './TaskDev/*')
 
-.PHONY: build release test check cover consumer-test parity-check clean rename taskdev-validate taskdev-sync
+.PHONY: build release test check cover consumer-test clean rename
 
 build:
 	go build -ldflags "-X main.defaultVersion=$(VERSION)" -o $(BINARY) ./cmd/mayamcp
@@ -44,10 +43,6 @@ check:
 consumer-test:
 	cd consumer && GOWORK=off go test -count=1 ./...
 
-# Byte-identical tool contract and build parity with ngodingmcp, when present.
-parity-check:
-	@sh scripts/parity-check.sh
-
 clean:
 	rm -f $(BINARY) coverage.out
 
@@ -68,14 +63,3 @@ rename:
 	@sed -i 's|^/mayamcp|/$(NAME)|' .gitignore
 	@if [ -d cmd/mayamcp ] && [ "$(NAME)" != "mayamcp" ]; then mv cmd/mayamcp cmd/$(NAME); fi
 	@echo "renamed to $(MODULE) (binary $(NAME)); run make check and review the diff"
-
-# Validate the private TaskDev notebook locally. It is intentionally not run in
-# CI: TaskDev/ is gitignored, so a runner has no notebook to validate.
-taskdev-validate:
-	@python3 $(TASKDEV_CLI) validate --strict
-
-# Regenerate the TaskDev index, then undo the CLI's hardcoded fallback name.
-taskdev-sync:
-	@python3 $(TASKDEV_CLI) sync
-	@grep -q 'proyek \*\*MayaMCP\*\*' TaskDev/README.md || \
-		sed -i 's/proyek \*\*[^*]*\*\*/proyek **MayaMCP**/' TaskDev/README.md

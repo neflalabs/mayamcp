@@ -23,12 +23,12 @@ go get github.com/neflalabs/mayamcp@v0.1.0
   transformation, and openness. It fits a **genesis / seed** that is not yet
   locked to one domain — ready to become a local tool server, an internal
   service, an API integration, or a domain-specific MCP server.
-- **Relationship to NgodingMCP.** `NgodingMCP` was born from a concrete need:
-  a sandboxed editor/workspace plus an operations control panel. MayaMCP takes
-  the same engineering discipline and MCP patterns and offers them as a
-  cleaner, more flexible foundation **without the old appliance identity**.
-  NgodingMCP is now the reference consumer; MayaMCP is the source of truth for
-  core fixes.
+- **Relationship to the upstream application.** MayaMCP was extracted from
+  `NgodingMCP`, an application built around a sandboxed editor/workspace and an
+  operations control panel. MayaMCP keeps the engineering discipline and MCP
+  patterns but drops that application's identity, UI, and domain. The upstream
+  application is now the reference consumer; MayaMCP is the source of truth for
+  core fixes. You do not need to know `NgodingMCP` to use this template.
 
 ## Design principles
 
@@ -165,13 +165,8 @@ internal/app/           NewCore builder without a listener
 cmd/mayamcp/            transport selector (stdio / Streamable HTTP)
 consumer/               separate module importing only api (acceptance test)
 docs/                   developer guides (start at docs/README.md)
-scripts/parity-check.sh cross-repo tool-contract gate
-testdata/parity/        recorded golden hash for ngodingmcp
 .github/workflows/      CI and semver release
 ```
-
-`TaskDev/` holds the local architecture notebook and audit trail. It is
-intentionally gitignored and not part of this repository.
 
 ## Testing & quality
 
@@ -179,7 +174,6 @@ intentionally gitignored and not part of this repository.
 make test            # go test -count=1 ./...
 make check           # gofmt, go vet, staticcheck, go test -race
 make consumer-test   # external module, imports only api
-make parity-check    # ngodingmcp golden unchanged + both modules build
 ```
 
 The `tools/list` contract is locked by

@@ -1,8 +1,8 @@
 # Observability: Activity Log
 
 The only built-in observability output in MayaMCP is **one log line per
-`tools/call`**. Its format is a contract: the `ngodingmcp` TUI recognises lines
-by the `tool: ` prefix.
+`tools/call`**. Its format is a contract: downstream log readers and terminal
+UIs recognise lines by the `tool: ` prefix.
 
 ## Format
 
@@ -46,7 +46,7 @@ Token estimates are `bytes/4`, not tokenizer output. The compact suffix uses
 the **larger** payload because a client forwards one or both to the model —
 summing both would double count. Consumers that want the breakdown can call
 `api.MeasureActivity(res).Suffix(true)`, which produces
-` ~N tok (ct X + st Y)` (the format used by `ngodingmcp`).
+` ~N tok (ct X + st Y)` (the verbose format used by some downstream clients).
 
 ## Privacy guarantees
 
@@ -76,8 +76,8 @@ srv.AddReceivingMiddleware(api.ActivityMiddleware(logger, extractor))
 ```
 
 With `NewCore`, if you already have domain-aware middleware, set
-`Config.DisableActivityMiddleware = true` and install your own. `ngodingmcp`
-does this so that `_meta` exit codes still appear as `✗ exit N`.
+`Config.DisableActivityMiddleware = true` and install your own — for example,
+to surface domain `_meta` exit codes as `✗ exit N`.
 
 ## Consuming the lines
 
@@ -97,8 +97,8 @@ Use the `✓`/`✗` token as the status marker.
   outcomes, and end-to-end middleware.
 - `api/toolkit_test.go` — public `ActivityMiddleware` wrapper, `MeasureActivity`,
   `SanitizeTarget`, and `New` hooks.
-- `ngodingmcp` keeps its `_meta` outcome tests; its golden is guarded by
-  `make parity-check`.
+- Downstream consumers keep their own `_meta` outcome tests; the core's tool
+  contract is guarded by the golden test and `TestToolsListBudget`.
 
 A change to the prefix, line format, or attributes is a contract change —
 update tests and golden files in the same commit.

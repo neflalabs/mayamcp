@@ -13,8 +13,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// ActivityPrefix starts the message of every tool-activity log record, so UIs
-// such as the TUI can recognise and highlight them.
+// ActivityPrefix starts the message of every tool-activity log record, so
+// downstream log readers can recognise and highlight them.
 const ActivityPrefix = "tool: "
 
 // maxTargetLen caps the target shown in an activity line.
@@ -386,9 +386,9 @@ func shortDur(d time.Duration) string {
 }
 
 // CountTools reports how many tools s exposes, by listing them over an
-// in-memory session. The TUI shows this number while the server runs. When
-// ctx has no deadline, a five-second bound prevents a stuck session from
-// blocking the caller indefinitely.
+// in-memory session. Downstream clients can display this number while the
+// server runs. When ctx has no deadline, a five-second bound prevents a stuck
+// session from blocking the caller indefinitely.
 func CountTools(ctx context.Context, s *mcp.Server) (int, error) {
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc

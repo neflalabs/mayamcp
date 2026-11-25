@@ -21,16 +21,6 @@ jobs:
         run: go mod verify
       - name: Consumer acceptance test (external module)
         run: make consumer-test
-      - name: Checkout ngodingmcp for parity gate
-        uses: actions/checkout@v4
-        with:
-          repository: neflalabs/ngodingmcp
-          path: .ci/ngodingmcp
-      - name: Cross-repo parity gate
-        run: |
-          mkdir -p .ci
-          ln -s .. .ci/mayamcp
-          NGODINGMCP_DIR=.ci/ngodingmcp make parity-check
       - name: Build binary
         run: make build
       - name: Cross-compile check
