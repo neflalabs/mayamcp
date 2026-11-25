@@ -21,8 +21,9 @@ dalamnya merujuk ke upstream.
 - `cmd/mayamcp` — pemilih transport: `stdio` (default) atau `http`.
 - `docs/mcp-as-template.md` — catatan upstream tentang ekstraksi template.
 - `docs/creating-tools.md` — panduan membuat tool berparameter.
-- `TaskDev/` — guideline arsitektur dan histori keputusan (index: `TaskDev/README.md`).
-- `.github/workflows/ci.yml` — `make check`, `make build`, validasi notebook.
+- `TaskDev/` — guideline arsitektur dan histori keputusan; **lokal saja**
+  (di-`.gitignore`, tidak ikut ter-clone).
+- `.github/workflows/ci.yml` — `make check`, `go mod verify`, build, cross-compile.
 
 Domain contoh bernama `Host` di `internal/mcpserver/domain.go`. Saat memakai
 template ini, ganti `Host` dan `tools_*.go` dengan domain target; berkas

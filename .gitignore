@@ -1,3 +1,33 @@
+# Binary & hasil build
 /mayamcp
+/mayamcp.exe
 /dist/
-coverage.out
+*.test
+*.out
+*.prof
+coverage.html
+
+# Catatan kerja lokal (private notebook)
+/TaskDev/
+
+# Environment & rahasia lokal
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+*.key
+credentials*.json
+
+# Editor & sistem operasi
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# Tooling lokal
+.opencode/
+go.work
+go.work.sum

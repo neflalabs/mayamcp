@@ -25,17 +25,3 @@ jobs:
           for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
             GOOS=${target%/*} GOARCH=${target#*/} go build -o /dev/null ./cmd/mayamcp
           done
-
-  notebook:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - name: Validate TaskDev notebook if the local skill CLI is available
-        run: |
-          CLI="$HOME/.config/opencode/skills/taskdev/scripts/taskdev-cli.ts"
-          if [ -f "$CLI" ]; then
-            bun run "$CLI" validate
-          else
-            echo "taskdev CLI not present in this runner; skipping notebook validation"
-          fi
