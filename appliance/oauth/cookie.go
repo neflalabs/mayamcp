@@ -16,6 +16,8 @@ import (
 // both signing and verification; Secure/SameSite are applied by
 // NewSessionCookie.
 type CookieOptions struct {
+	Name     string
+	Key      []byte
 	TTL      time.Duration
 	Secure   bool
 	SameSite http.SameSite
