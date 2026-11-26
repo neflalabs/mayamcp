@@ -12,7 +12,7 @@ below appears in a guide, this is its meaning here.
 | **Stop-the-Line** | Fix the root cause of a failing test or build before adding new features. |
 | **golden / golden test** | The locked `tools/list` snapshot in `internal/mcpserver/testdata/tools.golden.json` (884-byte pretty file). `TestToolContract` compares against it; regenerate deliberately with `-args -update`. |
 | **budget** | The 2048-byte cap on the **compact `tools/list` payload**, measured by `TestToolsListBudget` (601 bytes for the default two tools). It is not the golden file size. |
-| **CalVer** | Date-shaped release labels such as `v2026.11.8`, kept for human-readable changelog dates and old binary tags. Not valid Go module versions. |
+| **CalVer** | Date-shaped release labels such as `v2026.11.8`, used only as human-readable changelog dates. Those tags were removed from the remote because Go reads `v2026` as a major version; module versions are semver. |
 | **semver** | Module version `v0.MINOR.PATCH` used by `go get` and GitHub Releases. `v0.1.0` is the current baseline. |
 | **slice S1–S20 / R1–R10** | Internal planning IDs from the private architecture notebook. Changelog entries describe them in plain language instead. |
 

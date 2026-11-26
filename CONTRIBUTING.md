@@ -76,7 +76,8 @@ function to `api`, write godoc that states its defaults and when to use it.
 - Commit messages explain *why*, not just *what*.
 - Module versions are semver `v0.MINOR.PATCH`; releases are created by a
   `v0.*` tag or `workflow_dispatch` in `.github/workflows/release.yml`.
-  Older `v2026.11.x` tags are historical binary labels, not module versions.
+  Older `v2026.11.x` CalVer labels were removed from the remote; module versions
+  are semver only.
 - `CHANGELOG.md` records published releases; add an entry when behaviour or
   compatibility changes.
 

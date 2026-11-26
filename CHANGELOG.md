@@ -1,8 +1,9 @@
 # Changelog — MayaMCP
 
 Release notes for published module versions (`v0.MINOR.PATCH`) and binary
-artifacts. The earlier `v2026.11.x` tags were CalVer **date labels**; they remain
-as historical artefacts but are not valid Go module versions.
+artifacts. Earlier `v2026.11.x` labels were CalVer **dates**; those tags were
+removed from the remote because Go reads `v2026` as a major version. Module
+versions are semver only.
 
 Artifacts and GitHub Releases: <https://github.com/neflalabs/mayamcp/releases>
 

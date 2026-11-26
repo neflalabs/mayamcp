@@ -13,9 +13,9 @@ go get github.com/neflalabs/mayamcp@v0.1.0
 ```
 
 > **Version note:** `v0.x.y` is the only version scheme for modules and GitHub
-> Releases. Older `v2026.11.x` tags are historical binary-release labels and
-> must not be used with `go get` — Go reads `v2026` as a major version. While
-> the semver tag is still local, use `@main` or a commit hash. See
+> Releases. Use `@v0.1.0` for a pinned dependency, or `@main` if you want the
+> latest code. Older `v2026.11.x` labels were CalVer release dates and have
+> been removed from the remote — Go reads `v2026` as a major version. See
 > [Versioning](#versioning).
 
 ## Why "MayaMCP"?
@@ -200,10 +200,9 @@ MINOR bump; removals or signature changes require one plus a migration note in
 prefix never change through a routine `api` change.
 
 `v0.*` tags drive `.github/workflows/release.yml`, GitHub Releases, and binary
-artifacts. `v0.1.0` is the current baseline (the same code previously labelled
-`v2026.11.8`). The `v2026.11.x` tags remain only as historical artefacts; do not
-use them with `go get`. While `v0.1.0` is still local, track `@main` or a commit
-hash instead.
+artifacts. `v0.1.0` is the current published baseline. Older `v2026.11.x`
+CalVer labels were removed from the remote because Go reads `v2026` as a major
+version; use `@v0.x.y` or `@main` instead.
 
 ## Documentation
 
