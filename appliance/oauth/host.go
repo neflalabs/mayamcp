@@ -57,6 +57,9 @@ func ValidRequestHost(host string) bool {
 	return true
 }
 
+// ValidPort reports whether s is a decimal TCP port in 1..65535.
+func ValidPort(s string) bool { return isPort(s) }
+
 func isPort(s string) bool {
 	if len(s) == 0 || len(s) > 5 {
 		return false

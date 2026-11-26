@@ -77,6 +77,9 @@ func RotateRefresh(ctx context.Context, current string, st Store, now func() tim
 	return next, nil
 }
 
+// RandomID returns a URL-safe random identifier of size bytes.
+func RandomID(size int) (string, error) { return randomToken(size) }
+
 func randomToken(size int) (string, error) {
 	buf := make([]byte, size)
 	if _, err := rand.Read(buf); err != nil {
