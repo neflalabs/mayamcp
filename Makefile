@@ -6,7 +6,7 @@ NAME := $(notdir $(MODULE))
 CURRENT_MODULE := $(shell sed -n 's/^module //p' go.mod)
 RENAME_DOCS := $(shell find . -type f \( -name '*.go' -o -name '*.md' \) -not -path './.git/*' -not -path './TaskDev/*')
 
-.PHONY: build release test check cover consumer-test clean rename
+.PHONY: build release test check cover consumer-test appliance-test clean rename
 
 build:
 	go build -ldflags "-X main.defaultVersion=$(VERSION)" -o $(BINARY) ./cmd/mayamcp
@@ -42,6 +42,10 @@ check:
 # Build and test a separate Go module that imports only mayamcp/api.
 consumer-test:
 	cd consumer && GOWORK=off go test -count=1 ./...
+
+# Test the opt-in appliance module (its own go.mod).
+appliance-test:
+	cd appliance && GOWORK=off go test -count=1 ./...
 
 clean:
 	rm -f $(BINARY) coverage.out

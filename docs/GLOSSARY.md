@@ -30,6 +30,10 @@ below appears in a guide, this is its meaning here.
 | **ActivityPrefix** | The `tool: ` prefix that marks an activity log record. |
 | **tool contract** | The tool names, schemas, and `tools/list` output locked by the golden file and budget test. |
 | **activity record** | One privacy-safe log line per `tools/call`: tool, optional target, outcome, duration, and token estimate. |
+| **appliance ring** | Optional third layer for auth, web UI, and terminal UI. Lives in `appliance/`, depends on core at most, never the reverse. |
+| **PKCE** | Proof Key for Code Exchange (RFC 7636). The client sends a `S256` challenge derived from a verifier so a stolen code cannot be exchanged. |
+| **state** | A single-use, short-lived CSRF value bound to the authorization request and its PKCE verifier. |
+| **session cookie** | Short-lived signed cookie carrying the browser identity. Never accepted as an MCP machine credential. |
 
 ## Everyday technical terms
 

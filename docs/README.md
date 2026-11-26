@@ -10,6 +10,7 @@ Start with the row that matches what you are trying to do.
 | [`creating-tools.md`](creating-tools.md) | "I want to add one tool" | Input schema, domain vs protocol errors, registration helpers, golden contract |
 | [`tool-authoring.md`](tool-authoring.md) | "I am building a full domain server" | End-to-end example with hooks, resources, middleware, and tests |
 | [`observability.md`](observability.md) | "I consume or change activity logs" | `tool: ` format, token suffix, slog attributes, privacy guarantees |
+| [`appliance.md`](appliance.md) | "I need OAuth in my new MCP server" | Opt-in appliance module, install, API, and what stays out of core |
 
 All guides are in English. A short explanation of the project name lives in
 [`README.md`](../README.md#why-mayamcp).

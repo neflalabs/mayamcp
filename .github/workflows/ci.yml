@@ -21,6 +21,8 @@ jobs:
         run: go mod verify
       - name: Consumer acceptance test (external module)
         run: make consumer-test
+      - name: Appliance module tests
+        run: make appliance-test
       - name: Build binary
         run: make build
       - name: Cross-compile check
