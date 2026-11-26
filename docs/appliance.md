@@ -84,9 +84,8 @@ make appliance-test   # tests for the appliance module
 make check            # core unchanged
 ```
 
-Tag `appliance/v0.x.y` to publish. `.github/workflows/release-appliance.yml`
-runs the core CI, verifies the module, packages the source, and publishes a
-separate GitHub Release.
+Tag `appliance/v0.x.y` to version the module for `go get`. CI verifies the
+module on every push; **no separate GitHub Release is published** for appliance.
 
 See [`GLOSSARY.md`](GLOSSARY.md) for terms such as *appliance ring*, *PKCE*,
 *state*, and *session cookie*.
